@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% load deal_filters %}
+
+{% block title %}Ткани - CRM Ткани{% endblock %}
+
+<style>
+.btn-action {
+    transition: all 0.3s ease;
+    border: none;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    filter: brightness(0.9);
+}
+
+.btn-action:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+</style>
+
+{% block content %}
+{% csrf_token %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-palette"></i> Ткани</h1>
+</div>
+
+<!-- Поиск и кнопка добавления -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <form method="get" class="d-flex">
+            <input type="text" name="search" class="form-control" 
+                   placeholder="Поиск по названию ткани или номеру цвета..." 
+                   value="{{ search_query }}">
+            <button type="submit" class="btn btn-outline-secondary ms-2">
+                <i class="bi bi-search"></i>
+            </button>
+            {% if search_query %}
+                <a href="{% url 'fabrics:fabric_list' %}" class="btn btn-outline-danger ms-2">
+                    <i class="bi bi-x"></i>
+                </a>
+            {% endif %}
+        </form>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{% url 'fabrics:fabric_create' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-circle"></i> Добавить ткань
+        </a>
+    </div>
+</div>
+
+<!-- Список тканей -->
+{% if fabrics %}
+    <div class="row">
+        {% for fabric in fabrics %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <a href="{% url 'fabrics:fabric_detail' fabric.id %}" class="text-decoration-none">
+                                {{ fabric.name }}
+                            </a>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if user.userprofile.can_view_finances %}
+                            <p class="text-muted mb-2">
+                                <small>
+                                    Себестоимость: {{ fabric.cost_price|format_price }} ₸ | 
+                                    Текущая цена: {{ fabric.selling_price|format_price }} ₸
+                                </small>
+                            </p>
+                        {% endif %}
+                        
+                        <!-- Цвета ткани (сначала с рулонами, потом без) -->
+                        {% for color in fabric.sorted_colors %}
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="color-cube me-2" 
+                                     style="width: 20px; height: 20px; background-color: {{ color.color_hex }}; border: 1px solid #ccc; border-radius: 3px;">
+                                </div>
+                                <div class="flex-grow-1">
+                                    <strong>{{ color.color_name }} (№{{ color.color_number }})</strong>
+                                    <div class="small text-muted">
+                                        {% with rolls=color.active_rolls_simple %}
+                                            {% if rolls %}
+                                                {% if rolls|length > 4 %}
+                                                    <div class="rolls-display">
+                                                        <span class="rolls-preview">
+                                                            {% for roll in rolls|slice:":4" %}{{ roll }}м {% endfor %}...
+                                                        </span>
+                                                        <span class="text-primary" style="cursor: pointer;" onclick="toggleRolls(this)">
+                                                            показать все
+                                                        </span>
+                                                        <div class="rolls-full" style="display: none;">
+                                                            {% for roll in rolls %}{{ roll }}м {% endfor %}
+                                                        </div>
+                                                        | итого: <strong>{{ color.total_width_meters_formatted }}</strong>
+                                                    </div>
+                                                {% else %}
+                                                    {% for roll in rolls %}{{ roll }}м {% endfor %}| итого: <strong>{{ color.total_width_meters_formatted }}</strong>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-danger">Нет в наличии</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                </div>
+                                {% if user.userprofile.can_view_finances %}
+                                    <div class="text-end">
+                                        <a href="{% url 'fabrics:color_edit' color.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% empty %}
+                            <p class="text-muted">Цвета не добавлены</p>
+                        {% endfor %}
+                        
+                        <!-- Показываем количество скрытых цветов -->
+                        {% if fabric.sorted_colors|length > 5 %}
+                            <div class="text-center mt-2">
+                                <small class="text-muted">
+                                    +{{ fabric.sorted_colors|length|add:"-5" }} цветов еще
+                                </small>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <a href="{% url 'fabrics:fabric_detail' fabric.id %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i> Подробнее
+                            </a>
+                            <small class="text-muted">
+                                Всего: {{ fabric.total_width_meters_formatted }}
+                            </small>
+                        </div>
+                        {% if user.userprofile.can_view_finances %}
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'fabrics:fabric_edit' fabric.id %}" class="btn btn-secondary btn-sm flex-fill btn-action">
+                                <i class="bi bi-pencil"></i> Редактировать
+                            </a>
+                            <a href="{% url 'fabrics:color_create' fabric.id %}" class="btn btn-info btn-sm flex-fill btn-action">
+                                <i class="bi bi-plus"></i> Добавить цвет
+                            </a>
+                            <button class="btn btn-danger btn-sm flex-fill btn-action" 
+                                    data-fabric-id="{{ fabric.id }}"
+                                    data-fabric-name="{{ fabric.name|escapejs }}"
+                                    data-deals-count="{{ fabric.deals_count }}"
+                                    data-colors-count="{{ fabric.fabriccolor_set.count }}"
+                                    onclick="confirmDeleteFabric(this)">
+                                <i class="bi bi-trash"></i> Удалить
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-palette display-1 text-muted"></i>
+        <h3 class="text-muted mt-3">
+            {% if search_query %}
+                Ткани не найдены
+            {% else %}
+                Ткани не добавлены
+            {% endif %}
+        </h3>
+        {% if user.userprofile.can_view_finances and not search_query %}
+            <a href="{% url 'fabrics:fabric_create' %}" class="btn btn-primary mt-3">
+                <i class="bi bi-plus-circle"></i> Добавить первую ткань
+            </a>
+        {% endif %}
+    </div>
+{% endif %}
+
+<script>
+function toggleRolls(element) {
+    const preview = element.parentNode.querySelector('.rolls-preview');
+    const full = element.parentNode.querySelector('.rolls-full');
+    
+    if (full.style.display === 'none') {
+        preview.style.display = 'none';
+        full.style.display = 'inline';
+        element.textContent = 'скрыть';
+    } else {
+        preview.style.display = 'inline';
+        full.style.display = 'none';
+        element.textContent = 'показать все';
+    }
+}
+
+function confirmDeleteFabric(button) {
+    const fabricId = button.dataset.fabricId;
+    const fabricName = button.dataset.fabricName;
+    const dealsCount = parseInt(button.dataset.dealsCount);
+    const colorsCount = parseInt(button.dataset.colorsCount);
+    
+    let message = `Вы уверены, что хотите удалить ткань "${fabricName}"?\n\n`;
+    
+    if (dealsCount > 0) {
+        message += `⚠️ ВНИМАНИЕ: Эта ткань используется в ${dealsCount} сделках!\n`;
+    }
+    
+    if (colorsCount > 0) {
+        message += `🎨 Цветов ткани: ${colorsCount}\n`;
+    }
+    
+    message += `\nПри удалении ткани:\n`;
+    message += `• Все цвета этой ткани будут удалены\n`;
+    message += `• Все рулоны этой ткани будут удалены\n`;
+    
+    if (dealsCount > 0) {
+        message += `• Позиции в ${dealsCount} сделках будут потеряны\n`;
+    }
+    
+    message += `\nЭто действие нельзя отменить!`;
+    
+    if (confirm(message)) {
+        // Создаем форму для отправки POST запроса
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/fabrics/${fabricId}/delete/`;
+        
+        // Добавляем CSRF токен
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}
+

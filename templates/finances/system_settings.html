@@ -1,0 +1,388 @@
+{% extends 'base.html' %}
+
+{% block title %}Настройки системы - CRM Ткани{% endblock %}
+
+
+
+<script>
+// Функция для переделки пользователя заново
+function recreateUser(userId, username) {
+    if (confirm(`Вы действительно хотите переделать пользователя "${username}" заново? Это действие нельзя отменить.`)) {
+        const newPassword = prompt('Введите новый пароль для пользователя:');
+        if (newPassword && newPassword.length >= 4) {
+            fetch('/finances/recreate-user/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: `user_id=${userId}&new_password=${encodeURIComponent(newPassword)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Пользователь успешно переделан!');
+                    location.reload();
+                } else {
+                    alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка при переделке пользователя');
+            });
+        } else {
+            alert('Пароль должен содержать минимум 4 символа');
+        }
+    }
+}
+
+// Функция для смены пароля
+function changePassword(userId, username) {
+    const newPassword = prompt(`Введите новый пароль для пользователя "${username}":`);
+    if (newPassword && newPassword.length >= 4) {
+        fetch('/finances/change-user-password/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: `user_id=${userId}&new_password=${encodeURIComponent(newPassword)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Пароль успешно изменен!');
+            } else {
+                alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ошибка при смене пароля');
+        });
+    } else if (newPassword !== null) {
+        alert('Пароль должен содержать минимум 4 символа');
+    }
+}
+
+
+</script>
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-gear"></i> Настройки системы</h1>
+    <a href="{% url 'finances:financial_dashboard' %}" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-left"></i> К аналитике
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Основные настройки -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-gear-fill"></i> Основные настройки</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.vat_rate.id_for_label }}" class="form-label">{{ form.vat_rate.label }}</label>
+                        {{ form.vat_rate }}
+                        {% if form.vat_rate.errors %}
+                            <div class="text-danger">{{ form.vat_rate.errors }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            Ставка НДС используется для расчета общей суммы сделок с НДС
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.markup_percentage.id_for_label }}" class="form-label">{{ form.markup_percentage.label }}</label>
+                        {{ form.markup_percentage }}
+                        {% if form.markup_percentage.errors %}
+                            <div class="text-danger">{{ form.markup_percentage.errors }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            Процент наценки применяется для автоматического расчета цены продажи новых тканей (Цена продажи = Себестоимость × (1 + Наценка%))
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check"></i> Сохранить настройки
+                        </button>
+                        <a href="{% url 'finances:financial_dashboard' %}" class="btn btn-secondary">
+                            <i class="bi bi-x"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Управление пользователями (только для админа) -->
+        {% if user.userprofile.role == 'admin' %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-people-fill"></i> Управление пользователями</h5>
+                <small class="text-muted">В системе 3 роли по 1 пользователю каждой</small>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Пользователь</th>
+                                <th>Роль</th>
+                                <th>Дата создания</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user_obj in all_users %}
+                                {% if user_obj.id != user.id %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ user_obj.username }}</strong>
+                                            {% if user_obj.first_name or user_obj.last_name %}
+                                                <div class="small text-muted">{{ user_obj.first_name }} {{ user_obj.last_name }}</div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{% if user_obj.userprofile.role == 'admin' %}danger{% elif user_obj.userprofile.role == 'accountant' %}success{% else %}warning{% endif %}">
+                                                {{ user_obj.userprofile.get_role_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ user_obj.date_joined|date:"d.m.Y" }}</td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        onclick="recreateUser({{ user_obj.id }}, '{{ user_obj.username }}')"
+                                                        title="Переделать заново">
+                                                    <i class="bi bi-arrow-repeat"></i> Переделать заново
+                                                </button>
+                                            <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                    onclick="changePassword({{ user_obj.id }}, '{{ user_obj.username }}')"
+                                                        title="Поменять пароль">
+                                                    <i class="bi bi-key"></i> Поменять пароль
+                                            </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Системная информация -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle-fill"></i> Системная информация</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Статистика системы:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Всего клиентов:</strong> {{ total_clients }}</li>
+                            <li><strong>Всего сделок:</strong> {{ total_deals }}</li>
+                            <li><strong>Всего тканей:</strong> {{ total_fabrics }}</li>
+                            <li><strong>Активных рулонов:</strong> {{ active_rolls }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Версия системы:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>CRM Ткани:</strong> v1.0</li>
+                            <li><strong>Обновлено:</strong> {{ "now"|date:"d.m.Y" }}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Справка</h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    <strong>Ставка НДС:</strong><br>
+                    Указывается в процентах (например, 12.00 для 12% НДС).<br><br>
+                    
+                    <strong>Роли в системе:</strong><br>
+                    • <span class="badge bg-danger">Администратор</span> - полный доступ<br>
+                    • <span class="badge bg-success">Бухгалтер</span> - без финансовой аналитики<br>
+                    • <span class="badge bg-warning">Кладовщик</span> - только склад<br><br>
+                    
+                    В системе может быть только по одному пользователю каждой роли.
+                </p>
+                
+                <hr>
+                
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Внимание!</strong><br>
+                    Изменение ставки НДС повлияет на все новые сделки
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-gear"></i> Другие настройки</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'finances:set_fabric_cost_price' %}" class="btn btn-outline-info btn-sm">
+                        <i class="bi bi-currency-exchange"></i> Себестоимость тканей
+                    </a>
+                    {% comment %} (pr2) Добавить кнопки для экспорта/импорта/очистки/резервной копии {% endcomment %}
+                    {% if user.userprofile.role == 'admin' %}
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="exportData()">
+                            <i class="bi bi-download"></i> Экспортировать данные
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="importData()">
+                            <i class="bi bi-upload"></i> Импортировать данные
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if user.userprofile.role == 'admin' %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-shield-exclamation"></i> Административные действия</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-warning btn-sm" onclick="cleanupData()">
+                        <i class="bi bi-trash"></i> Очистка данных
+                    </button>
+                    <button type="button" class="btn btn-outline-info btn-sm" onclick="backupData()">
+                        <i class="bi bi-download"></i> Резервная копия
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if user.userprofile.role == 'admin' %}
+<!-- Модальное окно смены пароля -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Смена пароля</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="userId" name="user_id">
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">Новый пароль</label>
+                        <input type="password" class="form-control" id="newPassword" name="new_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Подтвердите пароль</label>
+                        <input type="password" class="form-control" id="confirmPassword" name="confirm_password" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="saveNewPassword()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if user.userprofile.role == 'admin' %}
+<script>
+function changePassword(userId, username) {
+    document.getElementById('userId').value = userId;
+    document.querySelector('#changePasswordModal .modal-title').innerHTML = `Смена пароля для: ${username}`;
+    new bootstrap.Modal(document.getElementById('changePasswordModal')).show();
+}
+
+function saveNewPassword() {
+    const form = document.getElementById('changePasswordForm');
+    const formData = new FormData(form);
+    
+    const newPassword = formData.get('new_password');
+    const confirmPassword = formData.get('confirm_password');
+    
+    if (newPassword !== confirmPassword) {
+        alert('Пароли не совпадают');
+        return;
+    }
+    
+    if (newPassword.length < 6) {
+        alert('Пароль должен содержать минимум 6 символов');
+        return;
+    }
+    
+    fetch('/finances/change-password/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Пароль успешно изменен');
+            bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при смене пароля');
+    });
+}
+
+function exportData() {
+    if (confirm('Экспортировать все данные CRM в файл Excel?')) {
+        alert('Функция экспорта данных будет реализована позже');
+        // Здесь будет запрос на экспорт данных
+    }
+}
+
+function importData() {
+    if (confirm('Импортировать данные в CRM? Это может перезаписать существующие данные!')) {
+        alert('Функция импорта данных будет реализована позже');
+        // Здесь будет открытие модального окна для выбора файла
+    }
+}
+
+function cleanupData() {
+    if (confirm('Вы уверены, что хотите выполнить очистку данных? Это действие необратимо!')) {
+        alert('Функция очистки данных будет реализована позже');
+    }
+}
+
+function backupData() {
+    alert('Функция создания резервной копии будет реализована позже');
+}
+</script>
+{% endif %}
+{% endblock %}
+

@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load deal_filters %}
+
+{% block title %}Печать штрих-кода - CRM Ткани{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <h1><i class="bi bi-printer"></i> Печать штрих-кода</h1>
+    <a href="javascript:history.back()" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-left"></i> Назад
+    </a>
+</div>
+
+<div class="container print-area">
+    <div class="barcode-label">
+        <div class="header">
+            <span class="fabric-name">{{ roll.fabric_color.fabric.name }}</span>
+            <span class="color-info">{{ roll.fabric_color.color_name }} (№{{ roll.fabric_color.color_number }})</span>
+        </div>
+        <div class="details">
+            <span class="width">Ширина: {{ roll.width_meters|floatformat:2 }} м</span>
+            <span class="date">Дата: {{ roll.created_at|date:"d.m.Y" }}</span>
+        </div>
+        <div class="barcode-image">
+            {% comment %} (pr2) Здесь будет сгенерированное изображение QR-кода или штрих-кода. 
+            Можно использовать img src="data:image/png;base64,..." или передавать URL к изображению с сервера. {% endcomment %}
+            <img src="" alt="Штрих-код" id="barcode-img" style="width: 100%; height: 80px; object-fit: contain;"/>
+        </div>
+        <div class="barcode-number">
+            <code>{{ roll.barcode }}</code>
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-4 no-print">
+    <button class="btn btn-primary btn-lg" onclick="window.print()">
+        <i class="bi bi-printer"></i> Печать этикетки
+    </button>
+    {% comment %} (pr2) Дополнительная кнопка для генерации PDF, если потребуется {% endcomment %}
+</div>
+
+<style>
+    @media print {
+        body * { visibility: hidden; }
+        .print-area, .print-area * { visibility: visible; }
+        .print-area { position: absolute; left: 0; top: 0; }
+        .no-print { display: none !important; }
+
+        /* (pr2) Стили для печати: размер этикетки, шрифты, отступы */
+        /* Пример для этикетки 50x30мм */
+        .barcode-label {
+            width: 50mm; /* Ширина этикетки */
+            height: 30mm; /* Высота этикетки */
+            margin: 0; /* Убрать отступы */
+            padding: 2mm; /* Внутренние отступы */
+            border: 1px solid #ccc; /* Для визуализации, можно убрать */
+            font-family: 'Arial', sans-serif;
+            font-size: 8pt;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            text-align: center;
+        }
+        .barcode-label .header {
+            font-size: 10pt;
+            font-weight: bold;
+            margin-bottom: 1mm;
+        }
+        .barcode-label .details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 7pt;
+            margin-bottom: 1mm;
+        }
+        .barcode-label .barcode-image img {
+            width: 100%;
+            height: 15mm; /* Высота для QR/штрих-кода */
+            object-fit: contain;
+        }
+        .barcode-label .barcode-number {
+            font-size: 9pt;
+            font-weight: bold;
+            margin-top: 1mm;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // (pr2) Запрос на генерацию изображения штрих-кода/QR-кода
+    // Например, AJAX-запрос к /warehouse/api/generate-barcode/?text={{ roll.barcode }}
+    // и установка src для #barcode-img
+    // Или генерация на клиенте, если это QR-код
+    const barcodeImg = document.getElementById('barcode-img');
+    if (barcodeImg && '{{ roll.barcode }}') {
+        // Пример для QR-кода (можно использовать библиотеку на JS)
+        // Для штрих-кода потребуется серверная генерация или другая JS-библиотека
+        // Заглушка:
+        barcodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ roll.barcode }}`;
+    }
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - CRM Ткани{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-palette-fill"></i> {{ title }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.color_name.id_for_label }}" class="form-label">{{ form.color_name.label }}</label>
+                        {{ form.color_name }}
+                        {% if form.color_name.errors %}
+                            <div class="text-danger small">
+                                {% for error in form.color_name.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.color_number.id_for_label }}" class="form-label">{{ form.color_number.label }}</label>
+                        {{ form.color_number }}
+                        {% if form.color_number.errors %}
+                            <div class="text-danger small">
+                                {% for error in form.color_number.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.color_hex.id_for_label }}" class="form-label">{{ form.color_hex.label }}</label>
+                        <div class="d-flex align-items-center">
+                            {{ form.color_hex }}
+                            <div id="color-preview" class="ms-3" 
+                                 style="width: 40px; height: 40px; border: 1px solid #ccc; border-radius: 5px; background-color: {{ form.color_hex.value|default:'#000000' }};">
+                            </div>
+                        </div>
+                        <div class="form-text">Выберите цвет для визуального отображения</div>
+                        {% if form.color_hex.errors %}
+                            <div class="text-danger small">
+                                {% for error in form.color_hex.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.price_per_meter.id_for_label }}" class="form-label">{{ form.price_per_meter.label }}</label>
+                        {{ form.price_per_meter }}
+                        <div class="form-text">Цена за метр ширины в тенге</div>
+                        {% if form.price_per_meter.errors %}
+                            <div class="text-danger small">
+                                {% for error in form.price_per_meter.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        {% if fabric %}
+                            <a href="{% url 'fabrics:fabric_detail' fabric.id %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Отмена
+                            </a>
+                        {% elif color %}
+                            <a href="{% url 'fabrics:fabric_detail' color.fabric.id %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Отмена
+                            </a>
+                        {% else %}
+                            <a href="{% url 'fabrics:fabric_list' %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Отмена
+                            </a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Сохранить
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const colorInput = document.getElementById('{{ form.color_hex.id_for_label }}');
+    const colorPreview = document.getElementById('color-preview');
+    
+    if (colorInput && colorPreview) {
+        colorInput.addEventListener('input', function() {
+            colorPreview.style.backgroundColor = this.value;
+        });
+    }
+});
+</script>
+{% endblock %}
+

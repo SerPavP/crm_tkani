@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Штрих-коды для печати - CRM Ткани{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-printer"></i> Штрих-коды для печати</h1>
+    <a href="{% url 'warehouse:view_rolls' %}" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-left"></i> К списку рулонов
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Рулоны, созданные администратором/бухгалтером</h5>
+        <small class="text-muted">Эти штрих-коды нужно распечатать</small>
+    </div>
+    <div class="card-body">
+        {% if pending_rolls %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Штрих-код</th>
+                            <th>Ткань</th>
+                            <th>Цвет</th>
+                            <th>Ширина (м)</th>
+                            <th>Дата создания</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for roll in pending_rolls %}
+                            <tr>
+                                <td><code>{{ roll.barcode }}</code></td>
+                                <td>{{ roll.fabric_color.fabric.name }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="color-preview me-2" 
+                                             style="width: 20px; height: 20px; background-color: {{ roll.fabric_color.color_code }}; border: 1px solid #ddd; border-radius: 3px;">
+                                        </div>
+                                        {{ roll.fabric_color.color_name }} (№{{ roll.fabric_color.color_number }})
+                                    </div>
+                                </td>
+                                <td>{{ roll.width_meters }}</td>
+                                <td>{{ roll.created_at|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'warehouse:barcode_print' roll.barcode %}" 
+                                       class="btn btn-sm btn-primary" title="Печать штрих-кода">
+                                        <i class="bi bi-printer"></i> Печать
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Найдено {{ pending_rolls|length }} рулон{{ pending_rolls|length|pluralize:"ов,ов,ов" }} для печати</strong><br>
+                    Нажмите "Печать" рядом с каждым рулоном для печати штрих-кода
+                </div>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-check-circle display-1 text-success"></i>
+                <h4 class="text-muted mt-3">Все штрих-коды распечатаны</h4>
+                <p class="text-muted">
+                    Нет рулонов, ожидающих печати штрих-кодов
+                </p>
+                <a href="{% url 'warehouse:view_rolls' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-boxes"></i> Просмотреть все рулоны
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if pending_rolls %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6 class="mb-0"><i class="bi bi-info-circle"></i> Справка</h6>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-0">
+                <strong>Процесс печати штрих-кодов:</strong><br>
+                1. Администратор или бухгалтер создает рулоны в системе<br>
+                2. Рулоны появляются в этом списке как "ожидающие печати"<br>
+                3. Складовщик печатает штрих-коды для каждого рулона<br>
+                4. Штрих-коды наклеиваются на физические рулоны<br>
+                5. Рулоны готовы к использованию и сканированию
+            </p>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+

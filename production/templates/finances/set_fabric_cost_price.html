@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% load deal_filters %}
+
+{% block title %}Себестоимость тканей - CRM Ткани{% endblock %}
+
+{% block content %}
+<!-- Модальное окно для редактирования цен -->
+<div class="modal fade" id="editFabricModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Редактировать цены ткани</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editFabricForm">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <input type="hidden" id="editFabricId" name="fabric_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Название ткани</label>
+                        <input type="text" id="editFabricName" class="form-control" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editCostPrice" class="form-label">Себестоимость (₸/м)</label>
+                        <input type="number" class="form-control" id="editCostPrice" name="cost_price" 
+                               step="0.01" min="0.01" required>
+                        <div class="form-text">Затраты на производство или закупку ткани</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editSellingPrice" class="form-label">Цена продажи (₸/м)</label>
+                        <input type="number" class="form-control" id="editSellingPrice" name="selling_price" 
+                               step="0.01" min="0.01" required>
+                        <div class="form-text">Цена, по которой ткань продается клиентам</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-currency-exchange"></i> Себестоимость тканей</h1>
+    <a href="{% url 'finances:financial_dashboard' %}" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-left"></i> К аналитике
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Управление ценами тканей</h5>
+        <small class="text-muted">Управление себестоимостью и ценами продажи для всех тканей</small>
+    </div>
+    <div class="card-body">
+        {% if fabrics %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Название ткани</th>
+                            <th class="text-center">Себестоимость (₸/м)</th>
+                            <th class="text-center">Текущая стоимость (₸/м)</th>
+                            <th class="text-center">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fabric in fabrics %}
+                            <tr id="fabric-row-{{ fabric.id }}">
+                                <td>
+                                    <strong>{{ fabric.name }}</strong>
+                                    <div class="small text-muted">
+                                        Цветов: {{ fabric.fabriccolor_set.count }}
+                                        {% if fabric.total_width_meters > 0 %}
+                                            | На складе: {{ fabric.total_width_meters_formatted }}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span id="cost-display-{{ fabric.id }}">
+                                        {% if fabric.cost_price %}
+                                            <strong class="text-primary">{{ fabric.cost_price|format_price }} ₸</strong>
+                                        {% else %}
+                                            <span class="text-muted">Не установлена</span>
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span id="selling-display-{{ fabric.id }}">
+                                        {% if fabric.selling_price %}
+                                            <strong class="text-success">{{ fabric.selling_price|format_price }} ₸</strong>
+                                        {% else %}
+                                            <span class="text-muted">Не установлена</span>
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                onclick="editFabric({{ fabric.id }}, '{{ fabric.name }}', '{{ fabric.cost_price }}', '{{ fabric.selling_price }}')"
+                                                title="Редактировать цену">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <a href="{% url 'fabrics:fabric_detail' fabric.id %}" 
+                                           class="btn btn-sm btn-outline-primary" 
+                                           title="Посмотреть на ткань">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-palette display-1 text-muted"></i>
+                <h4 class="text-muted mt-3">Ткани не найдены</h4>
+                <p class="text-muted">Сначала добавьте ткани в систему</p>
+                <a href="{% url 'fabrics:fabric_create' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-plus-circle"></i> Добавить ткань
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Справка по себестоимости</h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Себестоимость:</h6>
+                <ul class="text-muted small">
+                    <li>Затраты на производство или закупку ткани</li>
+                    <li>Указывается в тенге за метр ширины</li>
+                    <li>Используется для расчета прибыли от продаж</li>
+                    <li>Наследуется всеми цветами данной ткани</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6>Текущая стоимость (цена продажи):</h6>
+                <ul class="text-muted small">
+                    <li>Цена, по которой ткань продается клиентам</li>
+                    <li>Рассчитывается автоматически с учетом наценки</li>
+                    <li>Можно изменить вручную для каждой ткани</li>
+                    <li>Используется при создании заказов</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="alert alert-info mt-3">
+            <i class="bi bi-lightbulb"></i>
+            <strong>Совет:</strong> Регулярно проверяйте соответствие цен продажи рыночным условиям и корректируйте наценку в настройках системы
+        </div>
+    </div>
+</div>
+
+<script>
+// Функция для открытия модального окна редактирования
+function editFabric(fabricId, fabricName, costPrice, sellingPrice) {
+    document.getElementById('editFabricId').value = fabricId;
+    document.getElementById('editFabricName').value = fabricName;
+    document.getElementById('editCostPrice').value = costPrice || '';
+    document.getElementById('editSellingPrice').value = sellingPrice || '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('editFabricModal'));
+    modal.show();
+}
+
+// Обработка формы редактирования
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('editFabricForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const fabricId = formData.get('fabric_id');
+            
+            fetch('/finances/update-fabric-prices/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Обновляем отображение в таблице
+                    const costDisplay = document.getElementById(`cost-display-${fabricId}`);
+                    const sellingDisplay = document.getElementById(`selling-display-${fabricId}`);
+                    
+                    costDisplay.innerHTML = `<strong class="text-primary">${data.cost_price} ₸</strong>`;
+                    sellingDisplay.innerHTML = `<strong class="text-success">${data.selling_price} ₸</strong>`;
+                    
+                    // Закрываем модальное окно
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editFabricModal'));
+                    modal.hide();
+                    
+                    // Показываем сообщение об успехе
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                    alertDiv.innerHTML = `
+                        <strong>Успешно!</strong> Цены ткани обновлены.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.querySelector('.card-body').insertBefore(alertDiv, document.querySelector('.table-responsive'));
+                    
+                    // Автоматически скрываем сообщение через 3 секунды
+                    setTimeout(() => {
+                        alertDiv.remove();
+                    }, 3000);
+                } else {
+                    alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка при сохранении изменений');
+            });
+        });
+    }
+});
+</script>
+{% endblock %}
+
