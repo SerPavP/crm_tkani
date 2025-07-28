@@ -17,6 +17,8 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
+from decimal import Decimal
+import datetime
 
 
 def format_price_for_display(value):
@@ -86,6 +88,12 @@ def deal_list(request):
 def deal_detail(request, deal_id):
     """Детальная информация о сделке"""
     deal = get_object_or_404(Deal, id=deal_id)
+    
+    # Обновляем общие суммы сделки, если они не установлены
+    if deal.total_amount is None:
+        deal.update_totals()
+        deal.save()
+    
     deal_items = deal.dealitem_set.all()
     fabrics = Fabric.objects.all().order_by('name')
     
@@ -241,9 +249,31 @@ def deal_change_status(request, deal_id):
                 description=f'Изменен статус сделки {deal.deal_number}: {old_status} → {deal.get_status_display()}'
             )
             
-            messages.success(request, f'Статус сделки изменен на "{deal.get_status_display()}".')
+            # Если это AJAX запрос, возвращаем JSON
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Статус сделки изменен на "{deal.get_status_display()}".',
+                    'new_status': new_status,
+                    'new_status_display': deal.get_status_display()
+                })
+            else:
+                messages.success(request, f'Статус сделки изменен на "{deal.get_status_display()}".')
         else:
-            messages.error(request, 'Неверный статус.')
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Неверный статус.'
+                }, status=400)
+            else:
+                messages.error(request, 'Неверный статус.')
+    
+    # Если это AJAX запрос, возвращаем JSON
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': False,
+            'error': 'Метод не поддерживается.'
+        }, status=405)
     
     return redirect('deals:deal_detail', deal_id=deal_id)
 
@@ -265,16 +295,23 @@ def add_deal_item(request, deal_id):
 
             # Валидация для бухгалтера
             if request.user.userprofile.role == 'accountant':
-                min_price = cost_price * 1.05
+                # Получаем текущую цену ткани (продажная цена или себестоимость)
+                current_price = fabric_color.fabric.selling_price or fabric_color.fabric.cost_price
+                # Минимальная цена = текущая цена - 30%
+                min_price = current_price * Decimal('0.70')
                 if deal_item.price_per_meter < min_price:
-                    messages.error(request, f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже себестоимости + 5% ({min_price:.2f} ₸). Поднимите цену!')
+                    messages.error(request, f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 30% ({min_price:.2f} ₸). Поднимите цену!')
                     # Если это AJAX запрос, возвращаем JSON ответ с ошибкой
                     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                        return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже себестоимости + 5% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
+                        return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 30% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
                     # Если это обычный запрос, возвращаемся к форме
                     return redirect('deals:deal_detail', deal_id=deal.id) # Или render с формой и ошибками
 
             deal_item.save()
+            
+            # Обновляем общие суммы сделки
+            deal.update_totals()
+            deal.save()
             
             # Логирование
             ActivityLog.objects.create(
@@ -331,11 +368,18 @@ def edit_deal_item(request, deal_id, item_id):
 
             # Валидация для бухгалтера
             if request.user.userprofile.role == 'accountant':
-                min_price = cost_price * 1.05
+                # Получаем текущую цену ткани (продажная цена или себестоимость)
+                current_price = fabric_color.fabric.selling_price or fabric_color.fabric.cost_price
+                # Минимальная цена = текущая цена - 30%
+                min_price = current_price * Decimal('0.70')
                 if deal_item.price_per_meter < min_price:
-                    return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже себестоимости + 5% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
+                    return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 30% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
 
             deal_item.save()
+            
+            # Обновляем общие суммы сделки
+            deal.update_totals()
+            deal.save()
             
             # Логирование
             ActivityLog.objects.create(
@@ -460,126 +504,160 @@ def export_deal_pdf(request, deal_id):
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = f"inline; filename=\"deal_{deal.deal_number}.pdf\""
 
-    doc = SimpleDocTemplate(response, pagesize=letter)
+    # Используем A4 размер для лучшего отображения
+    from reportlab.lib.pagesizes import A4
+    doc = SimpleDocTemplate(response, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     styles = getSampleStyleSheet()
     
     # Устанавливаем шрифт по умолчанию для всего документа
     from reportlab.lib.styles import ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.lib.units import cm
     
     # Настройка шрифта - всегда используем Times New Roman
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     
-    # Всегда используем Times New Roman
+    # Регистрируем шрифт Times New Roman
     try:
         pdfmetrics.registerFont(TTFont('TimesNewRoman', 'times.ttf'))
         font_name = 'TimesNewRoman'
         bold_font_name = 'TimesNewRoman'
     except:
-        # Если Times New Roman не найден, используем Times
-        font_name = 'Times'
-        bold_font_name = 'Times'
+        try:
+            # Пробуем зарегистрировать встроенный шрифт с поддержкой кириллицы
+            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+            pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+            font_name = 'STSong-Light'
+            bold_font_name = 'STSong-Light'
+        except:
+            # Если ничего не работает, используем Times
+            font_name = 'Times'
+            bold_font_name = 'Times'
     
-    # Создаем стили с поддержкой кириллицы
+    # Создаем стили с поддержкой кириллицы и автоматическим переносом
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['h1'],
         fontName=font_name,
-        fontSize=18,
+        fontSize=20,
         alignment=TA_CENTER,
-        spaceAfter=20
-    )
-    
-    subtitle_style = ParagraphStyle(
-        'CustomSubtitle',
-        parent=styles['h2'],
-        fontName=font_name,
-        fontSize=12,
-        alignment=TA_CENTER,
-        spaceAfter=15
+        spaceAfter=20,
+        spaceBefore=10,
+        leading=24
     )
     
     normal_style = ParagraphStyle(
         'CustomNormal',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=10,
+        fontSize=14,
         alignment=TA_LEFT,
-        spaceAfter=6
+        spaceAfter=6,
+        leading=16,
+        wordWrap='CJK'  # Автоматический перенос для кириллицы
     )
     
     bold_style = ParagraphStyle(
         'CustomBold',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=10,
+        fontSize=14,
         alignment=TA_LEFT,
-        spaceAfter=6
+        spaceAfter=6,
+        leading=16,
+        wordWrap='CJK'
     )
     
     story = []
 
     # Заголовок документа
     story.append(Paragraph(f"Сделка №{deal.deal_number}", title_style))
-    story.append(Spacer(1, 0.2 * inch))
+    story.append(Spacer(1, 0.3 * inch))
 
     # Информация о сделке и клиенте
-    story.append(Paragraph(f"Клиент: {deal.client.nickname}", normal_style))
-    story.append(Paragraph(f"Телефон: {deal.client.phone}", normal_style))
-    story.append(Paragraph(f"Статус: {deal.get_status_display()}", normal_style))
-    story.append(Paragraph(f"Дата создания: {deal.created_at.strftime('%d.%m.%Y %H:%M')}", normal_style))
-    story.append(Spacer(1, 0.2 * inch))
+    story.append(Paragraph(f"<b>Клиент:</b> {deal.client.nickname}", normal_style))
+    story.append(Paragraph(f"<b>Телефон:</b> {deal.client.phone}", normal_style))
+    story.append(Paragraph(f"<b>Статус:</b> {deal.get_status_display()}", normal_style))
+    story.append(Paragraph(f"<b>Дата создания:</b> {deal.created_at.strftime('%d.%m.%Y %H:%M')}", normal_style))
+    story.append(Spacer(1, 0.3 * inch))
 
-    # Таблица позиций (с колонкой "Сумма")
-    data = [["№", "Ткань", "Цвет", "Количество (м)", "Цена за м", "Сумма"]]
+    # Создаем данные для таблицы с поддержкой переноса текста
+    table_data = []
+    
+    # Заголовки таблицы
+    headers = ["№", "Ткань", "Цвет", "Количество (м)", "Цена за м", "Сумма"]
+    table_data.append(headers)
+    
+    # Данные позиций
     for i, item in enumerate(deal_items, 1):
-        data.append([
+        # Создаем параграфы для текста с автоматическим переносом
+        # Убираем ограничение длины - текст будет переноситься автоматически
+        fabric_para = Paragraph(item.fabric_color.fabric.name, normal_style)
+        color_para = Paragraph(f"{item.fabric_color.color_name} (№{item.fabric_color.color_number})", normal_style)
+        
+        row = [
             str(i),
-            item.fabric_color.fabric.name,
-            f"{item.fabric_color.color_name} (№{item.fabric_color.color_number})",
+            fabric_para,
+            color_para,
             str(item.width_meters),
             f"{format_price_for_display(item.price_per_meter)} ₸",
             f"{format_price_for_display(item.total_price)} ₸"
-        ])
+        ]
+        table_data.append(row)
     
-    # Добавляем итоговые строки в таблицу
-    data.append(["", "", "", "", "Итого:", f"{format_price_for_display(deal.total_amount)} ₸"])
-    data.append(["", "", "", "", "Итого (с НДС):", f"{format_price_for_display(deal.total_with_vat)} ₸"])
+    # Итоговые строки
+    table_data.append(["", "", "", "", "Итого:", f"{format_price_for_display(deal.total_amount)} ₸"])
+    table_data.append(["", "", "", "", "Итого (с НДС):", f"{format_price_for_display(deal.total_with_vat)} ₸"])
 
-    table = Table(data)
+    # Создаем таблицу с фиксированными ширинами колонок - увеличиваем ширину для лучшего отображения
+    col_widths = [1*cm, 5*cm, 4*cm, 2.5*cm, 3*cm, 3*cm]
+    table = Table(table_data, colWidths=col_widths, repeatRows=1, splitByRow=True)
     
-    # Стили для таблицы
+    # Улучшенные стили для таблицы
     style = TableStyle([
-        # Заголовок таблицы - серый фон
-        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        # Заголовок таблицы - темно-синий фон с белым текстом
+        ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
         ("FONTNAME", (0, 0), (-1, 0), bold_font_name),
-        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("FONTSIZE", (0, 0), (-1, 0), 14),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-        ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ("TOPPADDING", (0, 0), (-1, 0), 10),
+        ("FONTWEIGHT", (0, 0), (-1, 0), "BOLD"),
         
-        # Данные таблицы - желтый фон
-        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+        # Данные таблицы - белый фон с черным текстом
+        ("BACKGROUND", (0, 1), (-1, -3), colors.white),
+        ("TEXTCOLOR", (0, 1), (-1, -3), colors.black),
         ("FONTNAME", (0, 1), (-1, -1), font_name),
-        ("FONTSIZE", (0, 1), (-1, -1), 9),
-        ("ALIGN", (0, 0), (0, -1), "CENTER"),  # Номер по центру
+        ("FONTSIZE", (0, 1), (-1, -1), 14),
+        ("ALIGN", (0, 1), (0, -1), "CENTER"),  # Номер по центру
         ("ALIGN", (1, 1), (2, -1), "LEFT"),    # Ткань и цвет по левому краю
         ("ALIGN", (3, 1), (5, -1), "CENTER"),  # Количество, цена и сумма по центру
         
+        # Итоговые строки - желтый фон с черным текстом
+        ("BACKGROUND", (0, -2), (-1, -1), colors.yellow),
+        ("TEXTCOLOR", (0, -2), (-1, -1), colors.black),
+        ("FONTWEIGHT", (4, -2), (5, -1), "BOLD"),
+        ("FONTSIZE", (0, -2), (-1, -1), 14),
+        
         # Границы
         ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("LINEBELOW", (0, 0), (-1, 0), 2, colors.black),  # Толстая линия под заголовком
         
         # Отступы
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (1, 1), (-1, -1), 8),
-        ("BOTTOMPADDING", (1, 1), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (1, 1), (-1, -1), 10),
+        ("BOTTOMPADDING", (1, 1), (-1, -1), 10),
+        
+        # Высота строк - увеличиваем для лучшего отображения
+        ("MINIMUMHEIGHT", (0, 0), (-1, -1), 25),
     ])
     table.setStyle(style)
     
     story.append(table)
+    story.append(Spacer(1, 0.5 * inch))
 
     doc.build(story)
     return response
@@ -603,7 +681,7 @@ def export_deal_excel(request, deal_id):
     
     # Apply bold font to headers
     for cell in ws[1]:
-        cell.font = Font(bold=True)
+        cell.font = Font(bold=True, size=14)
         cell.alignment = Alignment(horizontal="center")
         cell.border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
@@ -618,6 +696,7 @@ def export_deal_excel(request, deal_id):
             float(item.total_price)
         ])
         for cell in ws[ws.max_row]:
+            cell.font = Font(size=12)
             cell.border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     # Totals
@@ -627,7 +706,7 @@ def export_deal_excel(request, deal_id):
     # Apply bold font and borders to total rows
     for row_idx in range(ws.max_row - 1, ws.max_row + 1):
         for col_idx in range(1, ws.max_column + 1):
-            ws.cell(row=row_idx, column=col_idx).font = Font(bold=True)
+            ws.cell(row=row_idx, column=col_idx).font = Font(bold=True, size=14)
             ws.cell(row=row_idx, column=col_idx).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     # Merge cells for totals
@@ -644,7 +723,7 @@ def export_deal_excel(request, deal_id):
                     max_length = len(str(cell.value))
             except:
                 pass
-        adjusted_width = (max_length + 2) * 1.2
+        adjusted_width = (max_length + 2) * 1.5
         ws.column_dimensions[column].width = adjusted_width
 
     wb.save(response)
@@ -685,18 +764,18 @@ def print_deal_warehouse(request, deal_id):
         'CustomTitle',
         parent=styles['h1'],
         fontName=font_name,
-        fontSize=18,
+        fontSize=22,
         alignment=TA_CENTER,
-        spaceAfter=20
+        spaceAfter=25
     )
     
     normal_style = ParagraphStyle(
         'CustomNormal',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=10,
+        fontSize=14,
         alignment=TA_LEFT,
-        spaceAfter=6
+        spaceAfter=8
     )
     
     story = []
@@ -724,26 +803,26 @@ def print_deal_warehouse(request, deal_id):
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
         ("FONTNAME", (0, 0), (-1, 0), bold_font_name),
-        ("FONTSIZE", (0, 0), (-1, 0), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-        ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ("FONTSIZE", (0, 0), (-1, 0), 14),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 16),
+        ("TOPPADDING", (0, 0), (-1, 0), 12),
         
         # Данные таблицы - желтый фон
         ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
         ("FONTNAME", (0, 1), (-1, -1), font_name),
-        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("FONTSIZE", (0, 1), (-1, -1), 12),
         ("ALIGN", (0, 0), (0, -1), "CENTER"),  # Номер по центру
         ("ALIGN", (1, 1), (2, -1), "LEFT"),    # Ткань и цвет по левому краю
         ("ALIGN", (3, 1), (3, -1), "CENTER"),  # Количество по центру
         
         # Границы
-        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("GRID", (0, 0), (-1, -1), 1.5, colors.black),
         
         # Отступы
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (1, 1), (-1, -1), 8),
-        ("BOTTOMPADDING", (1, 1), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (1, 1), (-1, -1), 12),
+        ("BOTTOMPADDING", (1, 1), (-1, -1), 12),
     ])
     table.setStyle(style)
     

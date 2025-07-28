@@ -25,6 +25,7 @@
                         {% endif %}
                     </div>
                     
+                    {% if user.userprofile.role == 'admin' %}
                     <div class="mb-3">
                         <label for="{{ form.cost_price.id_for_label }}" class="form-label">{{ form.cost_price.label }}</label>
                         {{ form.cost_price }}
@@ -50,6 +51,17 @@
                             </div>
                         {% endif %}
                     </div>
+                    {% else %}
+                    <!-- Скрытые поля для бухгалтера и складовщика с значениями по умолчанию -->
+                    <input type="hidden" name="{{ form.cost_price.name }}" value="1.00" id="{{ form.cost_price.id_for_label }}">
+                    <input type="hidden" name="{{ form.selling_price.name }}" value="1.00" id="{{ form.selling_price.id_for_label }}">
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Информация:</strong> Поля себестоимости и цены продажи скрыты. 
+                        Для бухгалтера и складовщика установлены значения по умолчанию (1.00 ₸).
+                    </div>
+                    {% endif %}
                     
                     <div class="d-flex justify-content-between">
                         <a href="{% url 'fabrics:fabric_list' %}" class="btn btn-secondary">
@@ -68,6 +80,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    {% if user.userprofile.role == 'admin' %}
     const costPriceInput = document.getElementById('{{ form.cost_price.id_for_label }}');
     const sellingPriceInput = document.getElementById('{{ form.selling_price.id_for_label }}');
     
@@ -97,9 +110,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!sellingPriceInput.value && costPriceInput.value) {
         calculateSellingPrice();
     }
+    {% endif %}
     
+    {% if user.userprofile.role == 'admin' %}
     // Автоматический расчет цены продажи при изменении себестоимости
     costPriceInput.addEventListener('input', calculateSellingPrice);
+    {% endif %}
 });
 </script>
 

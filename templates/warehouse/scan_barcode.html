@@ -10,85 +10,97 @@
     </a>
 </div>
 
+{% if found_roll %}
+    <!-- Подтверждение списания -->
+    <div class="alert alert-warning mt-4">
+        <h5><i class="bi bi-exclamation-triangle"></i> Подтверждение списания</h5>
+        <p class="mb-0">Вы действительно хотите убрать этот рулон со склада?</p>
+    </div>
+    <div class="border rounded p-3 mb-3 bg-light">
+        <div class="row">
+            <div class="col-md-8">
+                <h6><strong>{{ found_roll.fabric_color.fabric.name }}</strong></h6>
+                <p class="mb-1">
+                    <span class="me-2">{{ found_roll.fabric_color.color_name }} (№{{ found_roll.fabric_color.color_number }})</span>
+                    <div class="color-preview d-inline-block me-2" 
+                         style="width: 16px; height: 16px; background-color: {{ found_roll.fabric_color.color_hex }}; border: 1px solid #ddd; border-radius: 2px;"></div>
+                </p>
+                <p class="mb-1"><strong>Ширина:</strong> {{ found_roll.width_meters }} м</p>
+                <p class="mb-0"><strong>Штрих-код:</strong> <code>{{ confirm_barcode }}</code></p>
+            </div>
+        </div>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="confirm">
+        <input type="hidden" name="confirm_barcode" value="{{ confirm_barcode }}">
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-check"></i> Да, убрать со склада
+            </button>
+            <a href="{% url 'warehouse:scan_barcode' %}" class="btn btn-secondary">
+                <i class="bi bi-x"></i> Отмена
+            </a>
+        </div>
+    </form>
+{% endif %}
+
 <div class="row">
     <div class="col-md-8">
         <div class="card mb-3">
             <div class="card-body">
-                <!-- Переключатель способа сканирования -->
-                <div class="mb-4">
-                    <div class="btn-group w-100" role="group">
-                        <input type="radio" class="btn-check" name="scan_mode" id="scan_mode_device" autocomplete="off" {% if not barcode_prefill and not found_roll %}checked{% endif %}>
-                        <label class="btn btn-outline-primary w-50" for="scan_mode_device">Считать с устройства</label>
-                        <input type="radio" class="btn-check" name="scan_mode" id="scan_mode_manual" autocomplete="off" {% if barcode_prefill or found_roll %}checked{% endif %}>
-                        <label class="btn btn-outline-secondary w-50" for="scan_mode_manual">Ввести вручную</label>
-                    </div>
-                </div>
-                <!-- Кнопка для сканера -->
-                 <div class="mb-4">
-                    <div id="video-area" style="display: none;">
-                        <video id="video" autoplay playsinline style="border: 2px solid #333; width: 100%; max-width: 600px;"></video>
-                    </div>
-                 </div>
-                <div id="scan-device-block" class="mb-4" {% if barcode_prefill or found_roll %}style="display:none;"{% endif %}>
-                    <button type="button" class="btn btn-success btn-lg w-100 py-4">
-                        <i class="bi bi-upc-scan display-4 d-block mb-2"></i>
-                        <strong>Считать с устройства</strong>
-                    </button>
-                    {% comment %} (pr2) Здесь должен быть вызов сканера устройства. Реализовать интеграцию с устройством-сканером (например, через JavaScript-библиотеку instascan, quaggaJS, zxing-js) для доступа к камере и распознавания кодов. {% endcomment %}
-                    <div class="form-text text-center mt-2">Поддержка сканера будет реализована другим программистом (см. комментарий в коде)</div>
-                </div>
-                <!-- Форма ручного ввода -->
-                <div id="scan-manual-block" {% if not barcode_prefill and not found_roll %}style="display:none;"{% endif %}>
-                    <form method="post" autocomplete="off">
+                <!-- Форма сканирования USB-сканером -->
+                <form method="post" autocomplete="off">
                     {% csrf_token %}
-                        <input type="hidden" name="action" value="scan">
-                        <input type="hidden" id="barcode_hidden" name="barcode" value="{{ barcode_prefill|default:'' }}">
-                        <div class="mb-3 position-relative">
-                            <label for="barcode_input" class="form-label">Штрих-код</label>
-                            <input type="text" class="form-control" id="barcode_input" maxlength="7" value="{{ barcode_prefill|default:'' }}" autocomplete="off">
-                            <div id="barcode-suggestions" class="list-group position-absolute w-100" style="z-index: 10; display: none;"></div>
+                    <input type="hidden" name="action" value="scan">
+                    <input type="hidden" id="barcode_hidden" name="barcode" value="{{ barcode_prefill|default:'' }}">
+                    <div class="mb-3 position-relative">
+                        <label for="barcode_input" class="form-label">Штрих-код (сканируйте или введите вручную)</label>
+                        <input type="text" class="form-control form-control-lg" id="barcode_input" maxlength="7" value="{{ barcode_prefill|default:'' }}" autocomplete="off" autofocus>
+                        <div id="barcode-suggestions" class="list-group position-absolute w-100" style="z-index: 10; display: none;"></div>
                         {% if form.barcode.errors %}
                             <div class="text-danger">{{ form.barcode.errors }}</div>
                         {% endif %}
-                            <div class="form-text">Введите 7-значный штрих-код или выберите ткань и цвет ниже</div>
-                        </div>
-                        <div class="text-center text-muted my-2" style="font-size: 1.1em;">или</div>
-                        <div class="mb-3">
-                            <label for="fabric_select" class="form-label">Ткань</label>
-                            <select class="form-select" id="fabric_select" name="fabric_select">
-                                <option value="">Выберите ткань</option>
-                                {% for fabric in fabrics %}
-                                    <option value="{{ fabric.id }}">{{ fabric.name }}</option>
-                                {% endfor %}
-                            </select>
-                            {% if not fabrics %}
-                                <div class="text-danger mt-2">Нет доступных тканей</div>
-                            {% endif %}
-                        </div>
-                        <div class="mb-3">
-                            <label for="color_select" class="form-label">Цвет</label>
-                            <select class="form-select" id="color_select" name="color_select" disabled>
-                                <option value="">Сначала выберите ткань</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="roll_select" class="form-label">Рулон</label>
-                            <select class="form-select" id="roll_select" name="roll_select" disabled>
-                                <option value="">Сначала выберите цвет</option>
-                            </select>
+                        <div class="form-text">Отсканируйте штрих-код или введите 7-значный код вручную.</div>
+                    </div>
+                    <div class="text-center text-muted my-2" style="font-size: 1.1em;">или</div>
+                    <div class="mb-3">
+                        <label for="fabric_select" class="form-label">Ткань</label>
+                        <select class="form-select" id="fabric_select" name="fabric_select">
+                            <option value="">Выберите ткань</option>
+                            {% for fabric in fabrics %}
+                                <option value="{{ fabric.id }}">{{ fabric.name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% if not fabrics %}
+                            <div class="text-danger mt-2">Нет доступных тканей</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label for="color_select" class="form-label">Цвет</label>
+                        <select class="form-select" id="color_select" name="color_select" disabled>
+                            <option value="">Сначала выберите ткань</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="roll_select" class="form-label">Рулон</label>
+                        <select class="form-select" id="roll_select" name="roll_select" disabled>
+                            <option value="">Сначала выберите цвет</option>
+                        </select>
                     </div>
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-warning">
-                                <i class="bi bi-upc-scan"></i> Найти рулон
+                            <i class="bi bi-upc-scan"></i> Найти рулон
                         </button>
                         <a href="{% url 'warehouse:view_rolls' %}" class="btn btn-secondary">
                             <i class="bi bi-x"></i> Отмена
                         </a>
                     </div>
                 </form>
-                </div>
+
+                {% comment %}
+                <!-- Подтверждение списания (перемещено наверх) -->
                 {% if found_roll %}
-                    <!-- Подтверждение списания -->
                     <div class="alert alert-warning mt-4">
                         <h5><i class="bi bi-exclamation-triangle"></i> Подтверждение списания</h5>
                         <p class="mb-0">Вы действительно хотите убрать этот рулон со склада?</p>
@@ -121,6 +133,7 @@
                         </div>
                     </form>
                 {% endif %}
+                {% endcomment %}
             </div>
         </div>
         {% if scanned_roll %}
@@ -129,7 +142,6 @@
                 Рулон <strong>{{ scanned_roll.barcode }}</strong> успешно списан со склада.
             </div>
         {% endif %}
-        <!-- pr2: Для интеграции сканера устройства используйте id='scan-device-block' -->
     </div>
     <div class="col-md-4">
         <!-- Справка и быстрые действия теперь внизу -->
@@ -140,10 +152,9 @@
             <div class="card-body">
                 <p class="text-muted small">
                     <strong>Сканирование штрих-кода:</strong><br>
-                    1. Считать с устройства или выбрать ручной ввод<br>
-                    2. Ввести 7-значный штрих-код или выбрать ткань, цвет и рулон<br>
-                    3. Нажать "Найти рулон"<br>
-                    4. Рулон будет помечен как списанный
+                    1. Отсканируйте штрих-код или введите его вручную.<br>
+                    2. Система автоматически найдет рулон.<br>
+                    3. Подтвердите списание рулона со склада.
                 </p>
                 <hr>
                 <div class="alert alert-warning">
@@ -173,192 +184,30 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Переключение между режимами сканирования
-    const scanDeviceBlock = document.getElementById('scan-device-block');
-    const scanManualBlock = document.getElementById('scan-manual-block');
+    const barcodeInput = document.getElementById('barcode_input');
+    const barcodeHidden = document.getElementById('barcode_hidden');
+    const suggestionsBox = document.getElementById('barcode-suggestions');
+    const form = barcodeInput.closest('form');
+    let debounceTimeout = null;
 
-    const videoArea = document.getElementById('video-area');
+    // Автофокус на поле ввода при загрузке страницы
+    barcodeInput.focus();
 
-    //Переменные для видео потока
-    let stream = null;
-    let scanInterval = null;
-    let isScanning = false;
-    let cameraStarted = false;
-    //конец
-
-    async function startCamera() {
-                try {
-                    //statusDiv.textContent = "Запуск камеры...";
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'environment',
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
-                        }
-                    });
-                    video.srcObject = stream;
-                    
-                    // Ждем, пока видео начнет воспроизводиться
-                    await new Promise((resolve) => {
-                        video.onloadedmetadata = () => {
-                            video.play().then(() => {
-                                resolve();
-                            });
-                        };
-                    });
-                    
-                    // Показываем видео
-                    videoArea.style.display = 'block';
-                    
-                    cameraStarted = true;
-                    //statusDiv.textContent = "Камера готова";
-                    return true;
-                } catch (err) {
-                    alert(`Ошибка камеры: ${err.message}`)
-                    //statusDiv.innerHTML = `Ошибка камеры: ${err.message}`;
-                    return false;
-                }
-            }
-    function stopCamera() {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                    stream = null;
-                }
-                
-                // Скрываем видео
-                videoArea.style.display = 'none';
-                cameraStarted = false;
-            }
-
-    async function sendFrame() {
-        console.log("Функция вызвана")
-    if (!isScanning || !cameraStarted) return;
-
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob(async (blob) => {
-        const formData = new FormData();
-        formData.append('image', blob, 'scan.jpg');
-        
-        try {
-            //statusDiv.textContent = "Сканирование...";
-            console.log("Сканирование...")
-            const response = await fetch('/warehouse/api/scan-barcode-image/', {
-                method: 'POST',
-                 headers: {
-                    'X-CSRFToken': csrfToken,
-                },
-                body: formData
-            });
-            
-            const data = await response.json();
-
-            
-            if (data.success && data.barcode) {
-                // Останавливаем сканирование
-                clearInterval(scanInterval);
-                isScanning = false;
-
-                if (typeof stopCamera === 'function') {
-                    stopCamera();
-                }
-                
-                // Проверяем, что поле ввода существует на текущей странице
-                if (typeof barcodeInput !== 'undefined' && barcodeInput) {
-                    // Заполняем поле ввода найденным штрих-кодом
-                    barcodeInput.value = data.barcode;
-                    
-                    // Программно запускаем событие 'input', которое:
-                    // 1. Синхронизирует значение с barcodeHidden
-                    // 2. Запустит поиск предложений через ваш существующий код
-                    const inputEvent = new Event('input', { 
-                        bubbles: true, 
-                        cancelable: true 
-                    });
-                    barcodeInput.dispatchEvent(inputEvent);
-                    
-                    // Фокусируемся на поле ввода
-                    barcodeInput.focus();
-
-                    const form = barcodeInput.closest('form');
-                    if (form) {
-                        form.submit();
-                    }
-                    
-                    // Обновляем статус
-                    //statusDiv.textContent = `Штрих-код найден и добавлен: ${data.barcode}`;
-                } else {
-                    // Если поля нет на текущей странице, перенаправляем
-                    window.location.href = `/warehouse/scan-barcode/?barcode=${encodeURIComponent(data.barcode)}`;
-                }
-                
-                // Скрываем камеру
-                if (typeof stopCamera === 'function') {
-                    stopCamera();
-                }
-                
-            } else if (data.error) {
-                //statusDiv.textContent = `Ошибка: ${data.error}`;
-                console.log(`Ошибка: ${data.error}`)
-                // Продолжаем сканирование
-            } else {
-                //statusDiv.textContent = "Штрих-код не найден, продолжаем сканирование...";
-                console.log("Штрих-код не найден, продолжаем сканирование...")
-                // Продолжаем сканирование
-            }
-        } catch (err) {
-            console.error('Ошибка при отправке изображения:', err);
-            console.log("Ошибка соединения")
-            //statusDiv.textContent = "Ошибка соединения";
-        }
-    }, 'image/jpeg', 0.85);
-}
-
-    scanDeviceBlock.addEventListener('click', async () => {
-        // Если камера еще не запущена, запускаем её
-        if (!cameraStarted) {
-            if (!(await startCamera())) return;
-        }
-        isScanning = true;
-        
-        // Отправляем первый кадр сразу
-        sendFrame();
-        
-        // Затем каждую секунду
-        scanInterval = setInterval(sendFrame, 1000);
-    });
-
-    window.addEventListener('beforeunload', () => {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
+    // Обработка ввода со сканера (или вручную) и отправка формы
+    barcodeInput.addEventListener('keydown', function(event) {
+        // Если нажат Enter (код 13) и поле не пустое
+        if (event.key === 'Enter' && this.value.trim() !== '') {
+            event.preventDefault(); // Предотвращаем стандартное действие Enter
+            barcodeHidden.value = this.value; // Синхронизируем скрытое поле
+            form.submit(); // Отправляем форму
         }
     });
 
-    //Сережин код
-    const radioDevice = document.getElementById('scan_mode_device');
-    const radioManual = document.getElementById('scan_mode_manual');
-    radioDevice.addEventListener('change', function() {
-        if (this.checked) {
-            scanDeviceBlock.style.display = '';
-            scanManualBlock.style.display = 'none';
-        }
-    });
-    radioManual.addEventListener('change', function() {
-        if (this.checked) {
-            stopCamera(); //ПРОГЕР-2 ИЗМЕНЕНИЕ: нужно чтобы камера отключалась при переключении на ручной ввод
-            scanDeviceBlock.style.display = 'none';
-            scanManualBlock.style.display = '';
-        }
-    });
-    // Динамическая загрузка цветов и рулонов
+    // Динамическая загрузка цветов и рулонов (оставлено, если нужно)
     const fabricSelect = document.getElementById('fabric_select');
     const colorSelect = document.getElementById('color_select');
     const rollSelect = document.getElementById('roll_select');
+    
     if (fabricSelect) {
         fabricSelect.addEventListener('change', function() {
             const fabricId = this.value;
@@ -408,15 +257,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     // Автодополнение для штрих-кода
-    const barcodeInput = document.getElementById('barcode_input');
-    const barcodeHidden = document.getElementById('barcode_hidden');
-    const suggestionsBox = document.getElementById('barcode-suggestions');
-    let debounceTimeout = null;
-
-    function syncBradcode() {
-
-    }
-
     // Синхронизация поля ввода с скрытым полем
     barcodeInput.addEventListener('input', function() {
         barcodeHidden.value = this.value;
@@ -471,13 +311,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
-    // Открытие ручного ввода если есть barcode_prefill
-    {% if barcode_prefill %}
-    document.getElementById('scan_mode_manual').checked = true;
-    document.getElementById('scan-device-block').style.display = 'none';
-    document.getElementById('scan-manual-block').style.display = '';
-    {% endif %}
 });
 </script>
 {% comment %}

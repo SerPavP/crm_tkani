@@ -35,7 +35,7 @@ class RoleAccessMiddleware:
             allowed_warehouse_paths = [
                 "/warehouse/",
                 "/core/",
-                "/fabrics/",  # Складовщик может просматривать ткани
+                "/fabrics/",  # Складовщик может управлять тканями
                 "/admin/logout/",
                 "/core/logout/",
             ]

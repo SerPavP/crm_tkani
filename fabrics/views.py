@@ -89,7 +89,7 @@ def fabric_detail(request, fabric_id):
 @login_required
 def fabric_create(request):
     """Создание новой ткани"""
-    if not request.user.userprofile.can_view_finances:
+    if not request.user.userprofile.can_manage_fabrics:
         messages.error(request, 'У вас нет прав для создания тканей.')
         return redirect('fabrics:fabric_list')
     
@@ -118,7 +118,7 @@ def fabric_create(request):
 @login_required
 def fabric_edit(request, fabric_id):
     """Редактирование ткани"""
-    if not request.user.userprofile.can_view_finances:
+    if not request.user.userprofile.can_manage_fabrics:
         messages.error(request, 'У вас нет прав для редактирования тканей.')
         return redirect('fabrics:fabric_list')
     
@@ -149,7 +149,7 @@ def fabric_edit(request, fabric_id):
 @login_required
 def color_create(request, fabric_id):
     """Создание нового цвета для ткани"""
-    if not request.user.userprofile.can_view_finances:
+    if not request.user.userprofile.can_manage_fabrics:
         messages.error(request, 'У вас нет прав для создания цветов.')
         return redirect('fabrics:fabric_list')
     
@@ -187,7 +187,7 @@ def color_create(request, fabric_id):
 @login_required
 def color_edit(request, color_id):
     """Редактирование цвета ткани"""
-    if not request.user.userprofile.can_view_finances:
+    if not request.user.userprofile.can_manage_fabrics:
         messages.error(request, 'У вас нет прав для редактирования цветов.')
         return redirect('fabrics:fabric_list')
     
@@ -240,7 +240,7 @@ def get_colors_by_fabric(request):
 @require_POST
 def fabric_delete(request, fabric_id):
     """Удаление ткани"""
-    if not request.user.userprofile.can_view_finances:
+    if not request.user.userprofile.can_manage_fabrics:
         messages.error(request, 'У вас нет прав для удаления тканей.')
         return redirect('fabrics:fabric_list')
     

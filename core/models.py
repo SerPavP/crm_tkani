@@ -71,6 +71,16 @@ class UserProfile(models.Model):
     def is_warehouse_only(self):
         """Является ли пользователь только складовщиком"""
         return self.role == 'warehouse'
+    
+    @property
+    def can_manage_fabrics(self):
+        """Может ли пользователь управлять тканями и цветами"""
+        return self.role in ['admin', 'accountant', 'warehouse']
+    
+    @property
+    def can_create_barcodes(self):
+        """Может ли пользователь создавать штрих-коды"""
+        return self.role in ['admin', 'warehouse']
 
 
 class ActivityLog(models.Model):

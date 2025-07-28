@@ -24,8 +24,8 @@ from io import BytesIO
 
 @login_required
 def manage_rolls(request):
-    """Управление рулонами для администратора/бухгалтера"""
-    if not hasattr(request.user, 'userprofile') or request.user.userprofile.role not in ['admin', 'accountant']:
+    """Управление рулонами для администратора/бухгалтера/складовщика"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.role not in ['admin', 'accountant', 'warehouse']:
         messages.error(request, 'У вас нет прав для управления рулонами.')
         return redirect('core:home')
 
@@ -174,6 +174,10 @@ def view_rolls(request):
 @login_required
 def create_barcode(request):
     """Создание штрих-кода для складовщика"""
+    if not request.user.userprofile.can_create_barcodes:
+        messages.error(request, 'У вас нет прав для создания штрих-кодов.')
+        return redirect('warehouse:view_rolls')
+    
     form = 0
     if request.method == 'POST':
         fabric_color_id = request.POST.get('fabric_color')
@@ -374,18 +378,18 @@ def barcode_print(request, barcode):
         # Создаем буфер для изображения
         buffer = BytesIO()
         
-        # ИСПРАВЛЕННЫЕ настройки для четкого отображения
+        # Оптимизированные настройки для принтера Xprinter XP-T371U (58мм x 40мм этикетки)
         barcode_options = {
-            'module_width': 0.4,      # увеличена ширина модуля для четкости
-            'module_height': 15,      # увеличена высота
-            'quiet_zone': 6,          # увеличена тихая зона
-            'font_size': 14,          # увеличен размер шрифта
-            'text_distance': 5,       # увеличено расстояние до текста
+            'module_width': 0.375,    # увеличенная ширина в 1.5 раза для лучшего сканирования
+            'module_height': 22,      # увеличенная высота в 1.5 раза для четкости
+            'quiet_zone': 7,          # увеличенная тихая зона для надежности
+            'font_size': 15,          # увеличенный размер шрифта в 1.5 раза
+            'text_distance': 3,       # расстояние до текста
             'background': 'white',    # белый фон
             'foreground': 'black',    # черные полосы
-            'write_text': True,       # показывать текст
+            'write_text': True,       # показывать текст под штрих-кодом
             'center_text': True,      # центрировать текст
-            'dpi': 300,               # ВАЖНО: высокое разрешение для печати
+            'dpi': 300,               # высокое разрешение для печати
         }
         
         # Генерируем изображение

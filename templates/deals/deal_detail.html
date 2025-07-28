@@ -4,6 +4,76 @@
 {% block title %}Сделка {{ deal.deal_number }} - CRM Ткани{% endblock %}
 
 {% block content %}
+<!-- CSRF токен для AJAX запросов -->
+{% csrf_token %}
+
+<style>
+    /* Стили для улучшенного интерфейса изменения статуса */
+    .status-badge .badge {
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .status-btn {
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        font-weight: 500;
+        padding: 10px 15px;
+    }
+    
+    .status-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .status-btn:disabled {
+        opacity: 0.6;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .status-progress .progress {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    .status-progress .progress-bar {
+        transition: width 0.5s ease;
+    }
+    
+    /* Анимация для уведомлений */
+    .alert {
+        animation: slideInRight 0.3s ease;
+    }
+    
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    /* Улучшенные стили для карточек */
+    .card {
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    
+    .card-header {
+        border-radius: 12px 12px 0 0 !important;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-cart"></i> Сделка {{ deal.deal_number }}</h1>
     <div>
@@ -54,11 +124,17 @@
                         <td><strong>Статус:</strong></td>
                         <td>
                             {% if deal.status == 'created' %}
-                                <span class="badge bg-secondary">{{ deal.get_status_display }}</span>
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-file-earmark-plus"></i> {{ deal.get_status_display }}
+                                </span>
                             {% elif deal.status == 'pending_payment' %}
-                                <span class="badge bg-warning">{{ deal.get_status_display }}</span>
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-clock"></i> {{ deal.get_status_display }}
+                                </span>
                             {% elif deal.status == 'paid' %}
-                                <span class="badge bg-success">{{ deal.get_status_display }}</span>
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> {{ deal.get_status_display }}
+                                </span>
                             {% endif %}
                         </td>
                     </tr>
@@ -66,6 +142,7 @@
                         <td><strong>Дата создания:</strong></td>
                         <td>{{ deal.created_at|date:"d.m.Y H:i" }}</td>
                     </tr>
+                    {% if user.userprofile.role != 'accountant' %}
                     <tr>
                         <td><strong>Общая сумма (без НДС):</strong></td>
                         <td><strong class="text-success">{{ deal.total_amount|format_price }} ₸</strong></td>
@@ -74,6 +151,7 @@
                         <td><strong>Общая сумма (с НДС):</strong></td>
                         <td><strong class="text-success">{{ deal.total_with_vat|format_price }} ₸</strong></td>
                     </tr>
+                    {% endif %}
                 </table>
             </div>
         </div>
@@ -81,24 +159,71 @@
         <!-- Изменение статуса -->
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-arrow-repeat"></i> Изменить статус</h6>
+                <h6 class="mb-0"><i class="bi bi-arrow-repeat"></i> Статус сделки</h6>
             </div>
             <div class="card-body">
-                <form method="post" action="{% url 'deals:deal_change_status' deal.id %}">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <select name="status" class="form-select">
-                            {% for value, label in deal.STATUS_CHOICES %}
-                                <option value="{{ value }}" {% if deal.status == value %}selected{% endif %}>
-                                    {{ label }}
-                                </option>
-                            {% endfor %}
-                        </select>
+                <div class="current-status mb-3">
+                    <small class="text-muted">Текущий статус:</small>
+                    <div class="status-badge mt-1">
+                        {% if deal.status == 'created' %}
+                            <span class="badge bg-secondary fs-6 px-3 py-2">
+                                <i class="bi bi-file-earmark-plus"></i> Создан
+                            </span>
+                        {% elif deal.status == 'pending_payment' %}
+                            <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+                                <i class="bi bi-clock"></i> Ожидание оплаты
+                            </span>
+                        {% elif deal.status == 'paid' %}
+                            <span class="badge bg-success fs-6 px-3 py-2">
+                                <i class="bi bi-check-circle"></i> Оплачен
+                            </span>
+                        {% endif %}
                     </div>
-                    <button type="submit" class="btn btn-primary btn-sm w-100">
-                        <i class="bi bi-check"></i> Изменить статус
-                    </button>
-                </form>
+                </div>
+                
+                <div class="status-actions">
+                    <small class="text-muted d-block mb-2">Изменить на:</small>
+                    <div class="d-grid gap-2">
+                        {% for value, label in deal.STATUS_CHOICES %}
+                            {% if deal.status != value %}
+                                <button type="button" 
+                                        class="btn btn-outline-primary status-btn" 
+                                        data-status="{{ value }}"
+                                        data-deal-id="{{ deal.id }}">
+                                    {% if value == 'created' %}
+                                        <i class="bi bi-file-earmark-plus"></i>
+                                    {% elif value == 'pending_payment' %}
+                                        <i class="bi bi-clock"></i>
+                                    {% elif value == 'paid' %}
+                                        <i class="bi bi-check-circle"></i>
+                                    {% endif %}
+                                    {{ label }}
+                                </button>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Прогресс статусов -->
+                <div class="status-progress mt-3">
+                    <div class="progress" style="height: 8px;">
+                        {% if deal.status == 'created' %}
+                            <div class="progress-bar bg-secondary" style="width: 33%"></div>
+                        {% elif deal.status == 'pending_payment' %}
+                            <div class="progress-bar bg-secondary" style="width: 33%"></div>
+                            <div class="progress-bar bg-warning" style="width: 33%"></div>
+                        {% elif deal.status == 'paid' %}
+                            <div class="progress-bar bg-secondary" style="width: 33%"></div>
+                            <div class="progress-bar bg-warning" style="width: 33%"></div>
+                            <div class="progress-bar bg-success" style="width: 34%"></div>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-muted">Создан</small>
+                        <small class="text-muted">Ожидание оплаты</small>
+                        <small class="text-muted">Оплачен</small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -118,13 +243,13 @@
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>№</th>
+                                    <th style="width: 50px;">№</th>
                                     <th>Ткань</th>
                                     <th>Цвет</th>
-                                    <th>Количество (м)</th>
-                                    <th>Цена за м</th>
-                                    <th>Сумма</th>
-                                    <th>Действия</th>
+                                    <th style="width: 120px;">Количество (м)</th>
+                                    <th style="width: 120px;">Цена за м</th>
+                                    <th style="min-width: 180px; width: auto;">Сумма</th>
+                                    <th style="width: 120px;">Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -189,7 +314,7 @@
                                             </div>
                                             {% endif %}
                                         </td>
-                                        <td class="total-cell"><strong>{{ item.total_price|format_price }} ₸</strong></td>
+                                        <td class="total-cell" style="min-width: 180px; width: auto;"><strong>{{ item.total_price|format_price }} ₸</strong></td>
                                         <td>
                                             <button class="btn btn-sm btn-outline-primary edit-item-btn" 
                                                     data-item-id="{{ item.id }}" title="Редактировать">
@@ -217,18 +342,21 @@
                             <tfoot>
                                 <tr class="table-success">
                                     <th colspan="5" class="text-end fs-5 fw-bold" style="padding-right: 20px;">Итого:</th>
-                                    <th class="fs-5 fw-bold deal-total text-end">{{ deal.total_amount|format_price }} ₸</th>
+                                    <th class="fs-5 fw-bold deal-total text-end" style="min-width: 200px; width: auto;">{{ deal.total_amount|format_price }} ₸</th>
+                                    <th style="width: 120px;"></th>
                                 </tr>
                                 {% if user.userprofile.role == 'admin' %}
                                     {% if total_profit > 0 %}
                                     <tr class="table-info">
                                         <th colspan="5" class="text-end fs-6" style="padding-right: 20px;">Прибыль компании:</th>
-                                        <th class="text-success fs-6 fw-bold deal-profit text-end">+{{ total_profit|format_price }} ₸</th>
+                                        <th class="text-success fs-6 fw-bold deal-profit text-end" style="min-width: 200px; width: auto;">+{{ total_profit|format_price }} ₸</th>
+                                        <th style="width: 120px;"></th>
                                     </tr>
                                     {% elif total_profit < 0 %}
                                     <tr class="table-warning">
                                         <th colspan="5" class="text-end fs-6" style="padding-right: 20px;">Убыток компании:</th>
-                                        <th class="text-danger fs-6 fw-bold deal-profit text-end">{{ total_profit|format_price }} ₸</th>
+                                        <th class="text-danger fs-6 fw-bold deal-profit text-end" style="min-width: 200px; width: auto;">{{ total_profit|format_price }} ₸</th>
+                                        <th style="width: 120px;"></th>
                                     </tr>
                                     {% endif %}
                                 {% endif %}
@@ -286,7 +414,7 @@
                                step="0.01" min="0.01" required placeholder="0.00">
                         {% if user.userprofile.can_view_finances %}
                         <div class="form-text">
-                            <small class="text-muted">Себестоимость будет показана после выбора цвета</small>
+                            <small class="text-muted">Себестоимость: <span id="cost_price_display">Будет показана после выбора цвета</span></small>
                         </div>
                         {% endif %}
                     </div>
@@ -350,17 +478,43 @@ document.addEventListener('DOMContentLoaded', function() {
         border-radius: 8px;
         padding: 12px 16px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        min-width: 200px !important;
+        width: auto !important;
+        text-align: right !important;
+        font-family: 'Courier New', monospace !important;
+        font-weight: bold !important;
     }
     
     .deal-profit {
         border-radius: 6px;
         padding: 8px 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        min-width: 200px !important;
+        width: auto !important;
+        text-align: right !important;
+        font-family: 'Courier New', monospace !important;
+        font-weight: bold !important;
     }
     
     .table tbody tr:hover {
         background-color: rgba(0,123,255,0.05);
         transition: background-color 0.2s ease;
+    }
+    
+    /* Стили для колонки с суммами */
+    .total-cell {
+        min-width: 180px !important;
+        width: auto !important;
+        text-align: right !important;
+        font-family: 'Courier New', monospace !important;
+        font-weight: bold !important;
+    }
+    
+    /* Стили для заголовка колонки "Сумма" */
+    .table thead th:nth-child(6) {
+        min-width: 180px !important;
+        width: auto !important;
+        text-align: right !important;
     }
     </style>
     `);
@@ -857,7 +1011,8 @@ document.addEventListener('DOMContentLoaded', function() {
             dealTotalElement.textContent = formattedAmount + ' ₸';
         }
         
-        // Обновляем общие суммы в информационной панели
+        // Обновляем общие суммы в информационной панели (только если пользователь не бухгалтер)
+        {% if user.userprofile.role != 'accountant' %}
         const allTds = document.querySelectorAll('td');
         let totalWithoutVatElement = null;
         let totalWithVatElement = null;
@@ -894,8 +1049,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             totalWithVatElement.textContent = formattedTotalWithVat + ' ₸';
         }
+        {% endif %}
         
-        // Обновляем прибыль компании (примерная логика - 30% от общей суммы)
+        // Обновляем прибыль компании (только для админов)
+        {% if user.userprofile.role == 'admin' %}
         const profitElement = document.querySelector('.deal-profit');
         if (profitElement) {
             const profit = totalAmount * 0.3;
@@ -905,6 +1062,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             profitElement.textContent = '+' + formattedProfit + ' ₸';
         }
+        {% endif %}
     }
     
     // Функция для пересчета общей суммы на основе всех строк
@@ -924,12 +1082,173 @@ document.addEventListener('DOMContentLoaded', function() {
         updateDealTotal(total);
     }
     
+    // Обработка изменения статуса сделки
+    function initializeStatusButtons() {
+        console.log('Инициализация кнопок статуса...');
+        const statusButtons = document.querySelectorAll('.status-btn');
+        console.log('Найдено кнопок статуса:', statusButtons.length);
+        
+        statusButtons.forEach(button => {
+            console.log('Добавляем обработчик для кнопки:', button);
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Кнопка нажата!');
+                const status = this.getAttribute('data-status');
+                const dealId = this.getAttribute('data-deal-id');
+                console.log('Статус:', status, 'ID сделки:', dealId);
+                
+                // Блокируем кнопку
+                this.disabled = true;
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Изменение...';
+                    
+                    // Получаем CSRF токен
+                    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || 
+                                     document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                                     document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+                    console.log('CSRF токен:', csrfToken);
+                    
+                    if (!csrfToken) {
+                        console.error('CSRF токен не найден!');
+                        showNotification('Ошибка безопасности: CSRF токен не найден', 'error');
+                        restoreButton(this, status);
+                        return;
+                    }
+                    
+                    // Отправляем AJAX запрос
+                    const url = `/deals/${dealId}/change-status/`;
+                    const body = `status=${status}`;
+                    console.log('Отправляем запрос на:', url);
+                    console.log('Тело запроса:', body);
+                    
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: body
+                    })
+                    .then(response => {
+                        console.log('Получен ответ:', response);
+                        console.log('Статус ответа:', response.status);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Данные ответа:', data);
+                        if (data.success) {
+                            // Показываем уведомление об успехе
+                            showNotification('Статус успешно изменен!', 'success');
+                            
+                            // Обновляем интерфейс
+                            updateStatusUI(status);
+                            
+                            // Перезагружаем страницу через небольшую задержку
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1500);
+                        } else {
+                            showNotification(data.error || 'Ошибка при изменении статуса', 'error');
+                            // Восстанавливаем кнопку
+                            restoreButton(this, status);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при парсинге JSON:', error);
+                        showNotification('Ошибка при обработке ответа сервера', 'error');
+                        // Восстанавливаем кнопку
+                        restoreButton(this, status);
+                    });
+            });
+        });
+    }
+    
+    // Функция для восстановления кнопки
+    function restoreButton(button, status) {
+        button.disabled = false;
+        if (status === 'created') {
+            button.innerHTML = '<i class="bi bi-file-earmark-plus"></i> Создан';
+        } else if (status === 'pending_payment') {
+            button.innerHTML = '<i class="bi bi-clock"></i> Ожидание оплаты';
+        } else if (status === 'paid') {
+            button.innerHTML = '<i class="bi bi-check-circle"></i> Оплачен';
+        }
+    }
+    
+    // Функция для обновления UI статуса
+    function updateStatusUI(newStatus) {
+        const statusBadge = document.querySelector('.status-badge');
+        const statusActions = document.querySelector('.status-actions');
+        const progressBar = document.querySelector('.status-progress .progress');
+        
+        // Обновляем бейдж статуса
+        if (statusBadge) {
+            let badgeHTML = '';
+            if (newStatus === 'created') {
+                badgeHTML = '<span class="badge bg-secondary fs-6 px-3 py-2"><i class="bi bi-file-earmark-plus"></i> Создан</span>';
+            } else if (newStatus === 'pending_payment') {
+                badgeHTML = '<span class="badge bg-warning text-dark fs-6 px-3 py-2"><i class="bi bi-clock"></i> Ожидание оплаты</span>';
+            } else if (newStatus === 'paid') {
+                badgeHTML = '<span class="badge bg-success fs-6 px-3 py-2"><i class="bi bi-check-circle"></i> Оплачен</span>';
+            }
+            statusBadge.innerHTML = badgeHTML;
+        }
+        
+        // Обновляем прогресс-бар
+        if (progressBar) {
+            let progressHTML = '';
+            if (newStatus === 'created') {
+                progressHTML = '<div class="progress-bar bg-secondary" style="width: 33%"></div>';
+            } else if (newStatus === 'pending_payment') {
+                progressHTML = '<div class="progress-bar bg-secondary" style="width: 33%"></div><div class="progress-bar bg-warning" style="width: 33%"></div>';
+            } else if (newStatus === 'paid') {
+                progressHTML = '<div class="progress-bar bg-secondary" style="width: 33%"></div><div class="progress-bar bg-warning" style="width: 33%"></div><div class="progress-bar bg-success" style="width: 34%"></div>';
+            }
+            progressBar.innerHTML = progressHTML;
+        }
+    }
+    
+    // Функция для показа уведомлений
+    function showNotification(message, type) {
+        // Создаем элемент уведомления
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Добавляем на страницу
+        document.body.appendChild(notification);
+        
+        // Автоматически скрываем через 3 секунды
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+    
+    // Инициализируем все кнопки
+    initializeEditButtons();
+    initializeSaveButtons();
+    initializeCancelButtons();
+    initializeStatusButtons();
+    
     // Дополнительная проверка через небольшую задержку для надежности
     setTimeout(() => {
         console.log('Дополнительная проверка кнопок...');
         initializeEditButtons();
         initializeSaveButtons();
         initializeCancelButtons();
+        initializeStatusButtons();
     }, 1000);
 });
 </script>

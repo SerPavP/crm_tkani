@@ -28,39 +28,29 @@
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-8">
-        <!-- Область для печати -->
-        <div class="card print-area">
-            <div class="card-body text-center">
-                <h2 class="mb-4">CRM Ткани</h2>
-                
-                <!-- Информация о рулоне -->
-                <div class="mb-2">
-                    <div class="roll-info-text">{{ roll.fabric_color.fabric.name }}</div>
-                    <div class="roll-info-text">{{ roll.fabric_color.color_name }} (№{{ roll.fabric_color.color_number }})</div>
-                    <div class="roll-info-text"><strong>Ширина:</strong> {{ roll.width_meters }} м</div>
-                </div>
+        <div class="row">
+            <div class="col-md-8">
+                <!-- Область для печати -->
+                <div class="print-area" style="margin: 0 auto; display: block;">
+                    <!-- Информация о рулоне -->
+                    <div class="label-info">
+                        <div class="info-line"><strong>N:</strong> {{ roll.fabric_color.fabric.name }}</div>
+                        <div class="info-line"><strong>C:</strong> {{ roll.fabric_color.color_name }}</div>
+                    </div>
 
-                <!-- Штрих-код с улучшенными стилями -->
-                <div class="barcode-container mb-4">
-                    {% if barcode_image %}
-                        <!-- Сгенерированный штрих-код -->
-                        <div class="barcode-image-wrapper mb-3">
+                    <!-- Штрих-код -->
+                    <div class="barcode-area">
+                        {% if barcode_image %}
                             <img src="data:image/png;base64,{{ barcode_image }}" 
                                  alt="Штрих-код {{ barcode }}" 
                                  class="barcode-image">
-                        </div>
-                    {% else %}
-                        <!-- Заглушка на случай ошибки генерации -->
-                        <div class="barcode-fallback mb-3">
+                        {% else %}
                             <div class="barcode-pattern"></div>
-                        </div>
-                    {% endif %}
+                        {% endif %}
+                        <div class="width-info"><strong>W:</strong> {{ roll.width_meters|floatformat:2 }} м</div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
     <div class="col-md-4">
         <div class="card">
@@ -135,43 +125,64 @@
     </div>
 </div>
 
+<!-- Кнопка печати -->
+<div class="row mt-3">
+    <div class="col-md-8 text-center">
+        <button class="btn btn-primary" onclick="printBarcodeOnly()">
+            <i class="bi bi-printer"></i> Печать штрих-кода (Новое окно)
+        </button>
+        <button class="btn btn-secondary ms-2" onclick="printBarcodeOnlyCSS()">
+            <i class="bi bi-printer"></i> Печать штрих-кода (CSS)
+        </button>
+    </div>
+</div>
+
 <style>
-/* Стили для штрих-кода */
-.roll-info-text {
-    font-size: 3.6em;
-    font-weight: normal;
-    margin-bottom: 4px;
-    color: #333;
+/* Новые стили для печати */
+.print-area {
+    position: relative;
+    width: 56mm;
+    height: 38mm;
+    padding: 1mm;
+    padding-top: 1mm; /* Уменьшен отступ сверху */
+    background: white;
+    border: 1px solid #ddd;
+    box-sizing: border-box;
 }
 
-.barcode-image-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 10px;
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
+.label-info {
+    width: 100%;
+    padding-bottom: 1mm;
+}
+
+.info-line {
+    font-size: 3.5mm;
+    font-weight: bold;
+    margin-bottom: 0.5mm;
+    color: #000;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.barcode-area {
+    position: absolute;
+    bottom: 0mm;
+    left: 50%;
+    transform: translate(-50%, 1.3mm); /* Смещен вниз на 1.3mm (было 0.5mm + 0.8mm) */
+    width: 80%;
+    text-align: center;
 }
 
 .barcode-image {
     max-width: 100%;
+    max-height: 54.68mm; /* Уменьшена высота на 1.32mm (5px) */
     height: auto;
-    /* Отключаем сглаживание для четких линий */
     image-rendering: -moz-crisp-edges;
     image-rendering: -webkit-crisp-edges;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
-    /* Запрещаем браузеру изменять размер */
-    max-width: 350px;
-    min-width: 250px;
-}
-
-.barcode-fallback {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
 }
 
 .barcode-pattern {
@@ -180,9 +191,17 @@
         #000 0px, #000 2px, 
         #fff 2px, #fff 4px
     );
-    height: 80px;
-    width: 300px;
-    border-radius: 2px;
+    height: 40.43mm; /* Уменьшена высота на 1.32mm (5px) */
+    width: 100%;
+    border-radius: 1px;
+}
+
+.width-info {
+    font-size: 3mm;
+    font-weight: bold;
+    margin-top: -3mm; /* Отрицательный отступ */
+    color: #000;
+    text-align: center;
 }
 
 /* Стили для печати только штрих-кода (альтернативный метод) */
@@ -191,18 +210,24 @@
         visibility: hidden;
     }
     
-    body.print-barcode-only .barcode-container,
-    body.print-barcode-only .barcode-container * {
+    body.print-barcode-only .print-area,
+    body.print-barcode-only .print-area * {
         visibility: visible;
     }
     
-    body.print-barcode-only .barcode-container {
+    body.print-barcode-only .print-area {
         position: absolute;
         left: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 100%;
+        top: 0;
+        transform: none;
         text-align: center;
+        width: 58mm !important;
+        height: 40mm !important;
+        padding: 0.5mm !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: white !important;
+        padding-top: 1mm !important; /* Уменьшен отступ сверху */
     }
 }
 
@@ -216,9 +241,18 @@
         display: none !important;
     }
     
-    body:not(.print-barcode-only) .print-area {
+    body:not(.print-barcode-only) .card { /* Hide info card */
+        display: none !important;
+    }
+    
+    body:not(.print-barcode-only) .print-area { /* Ensure print area is visible */
         border: none !important;
         box-shadow: none !important;
+        background: white !important;
+        width: 58mm !important;
+        height: 40mm !important;
+        padding: 0.5mm !important;
+        padding-top: 1mm !important; /* Уменьшен отступ сверху */
     }
     
     body:not(.print-barcode-only) .col-md-8 {
@@ -226,25 +260,52 @@
     }
     
     body:not(.print-barcode-only) {
-        font-size: 14pt;
+        font-size: 10pt;
     }
     
-    body:not(.print-barcode-only) .barcode-container {
-        page-break-inside: avoid;
-        margin: 20px 0;
+    body:not(.print-barcode-only) .info-line {
+        font-size: 3.5mm !important;
+        font-weight: bold !important;
+        margin-bottom: 0.5mm !important;
     }
     
     body:not(.print-barcode-only) .barcode-image {
-        /* Для печати используем максимальное качество */
-        image-rendering: auto;
-        max-width: none !important;
-        width: auto !important;
-        height: auto !important;
+        max-width: 100% !important;
+        max-height: 54.68mm !important; /* Уменьшена высота на 1.32mm (5px) */
+        image-rendering: -moz-crisp-edges;
+        image-rendering: -webkit-crisp-edges;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
     }
     
-    body:not(.print-barcode-only) .barcode-image-wrapper {
-        border: none;
-        padding: 0;
+    body:not(.print-barcode-only) .width-info {
+        font-size: 3mm !important;
+        font-weight: bold !important;
+        margin-top: -3mm !important; /* Отрицательный отступ */
+    }
+}
+
+/* Специальные стили для печати на 58мм x 40мм этикетках */
+@media print and (max-width: 60mm) {
+    .info-line {
+        font-size: 3.5mm !important;
+        font-weight: bold !important;
+        margin-bottom: 0.3mm !important;
+    }
+    
+    .barcode-image {
+        max-width: 100% !important;
+        max-height: 54.68mm !important; /* Уменьшена высота на 1.32mm (5px) */
+        image-rendering: -moz-crisp-edges;
+        image-rendering: -webkit-crisp-edges;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+    }
+    
+    .width-info {
+        font-size: 3mm !important;
+        font-weight: bold !important;
+        margin-top: -3mm !important; /* Отрицательный отступ */
     }
 }
 </style>
@@ -252,26 +313,30 @@
 <script>
 // Функция для печати только штрих-кода
 function printBarcodeOnly() {
-    // Получаем содержимое штрих-кода
-    const barcodeContainer = document.querySelector('.barcode-container');
-    const rollInfo = {
-        fabric: '{{ roll.fabric_color.fabric.name|escapejs }}',
-        color: '{{ roll.fabric_color.color_name|escapejs }}',
-        colorNumber: '{{ roll.fabric_color.color_number|escapejs }}',
-        width: '{{ roll.width_meters|escapejs }}',
-        date: '{{ roll.created_at|date:"d.m.Y"|escapejs }}',
-        barcode: '{{ barcode|escapejs }}'
-    };
-
-    if (!barcodeContainer) {
+    // Получаем содержимое штрих-кода из текущего DOM
+    const barcodeImageElement = document.querySelector('.barcode-area img');
+    const barcodePatternElement = document.querySelector('.barcode-area .barcode-pattern');
+    let barcodeHtml = '';
+    if (barcodeImageElement) {
+        barcodeHtml = barcodeImageElement.outerHTML;
+    } else if (barcodePatternElement) {
+        barcodeHtml = barcodePatternElement.outerHTML;
+    } else {
         alert('Штрих-код не найден!');
         return;
     }
 
+    const rollInfo = {
+        fabric: '{{ roll.fabric_color.fabric.name|escapejs }}',
+        color: '{{ roll.fabric_color.color_name|escapejs }}',
+        width: '{{ roll.width_meters|escapejs }}',
+        barcode: '{{ barcode|escapejs }}'
+    };
+
     // Создаем новое окно для печати
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     
-    // HTML содержимое для печати штрих-кода с информацией о рулоне (без названия компании)
+    // HTML содержимое для печати штрих-кода с информацией о рулоне
     const printContent = `
         <!DOCTYPE html>
         <html>
@@ -280,53 +345,54 @@ function printBarcodeOnly() {
             <title>Штрих-код ${rollInfo.barcode}</title>
             <style>
                 @page {
-                    size: A4;
-                    margin: 2cm;
+                    size: 58mm 40mm;
+                    margin: 0.5mm;
                 }
                 
                 body {
                     font-family: Arial, sans-serif;
                     margin: 0;
-                    padding: 20px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 80vh;
-                }
-                
-                .fabric-info {
-                    margin-bottom: 5px;
-                    text-align: center;
-                }
-                
-                .fabric-name, .fabric-color, .fabric-details {
-                    font-size: 40px;
-                    font-weight: normal;
-                    margin-bottom: 4px;
-                    color: #333;
-                }
-                
-                .fabric-details {
-                    line-height: 1.4;
-                }
-                
-                .barcode-section {
-                    text-align: center;
-                    margin: 10px 0;
-                    padding: 10px;
-                    border: 2px solid #f0f0f0;
-                    border-radius: 8px;
+                    padding: 0;
+                    padding-top: 1mm; /* Уменьшен отступ сверху */
+                    position: relative;
+                    width: 57mm;
+                    height: 39mm;
+                    box-sizing: border-box;
                     background: white;
                 }
                 
-                .barcode-image-wrapper, .barcode-fallback {
-                    margin-bottom: 0;
+                .label-info {
+                    width: 100%;
+                    padding-bottom: 1mm;
+                }
+                
+                .info-line {
+                    font-size: 3.5mm;
+                    font-weight: bold;
+                    margin-bottom: 0.5mm;
+                    color: #000;
+                    line-height: 1.2;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                
+                .barcode-area {
+                    position: absolute;
+                    bottom: 0mm;
+                    left: 50%;
+                    transform: translate(-50%, 1.3mm); /* Смещен вниз на 1.3mm (было 0.5mm + 0.8mm) */
+                    width: 80%;
+                    text-align: center;
                 }
                 
                 .barcode-image {
                     max-width: 100%;
+                    max-height: 54.68mm; /* Уменьшена высота на 1.32mm (5px) */
                     height: auto;
+                    image-rendering: -moz-crisp-edges;
+                    image-rendering: -webkit-crisp-edges;
+                    image-rendering: pixelated;
                     image-rendering: crisp-edges;
                 }
                 
@@ -336,37 +402,29 @@ function printBarcodeOnly() {
                         #000 0px, #000 2px, 
                         #fff 2px, #fff 4px
                     );
-                    height: 80px;
-                    width: 300px;
-                    margin: 0 auto;
-                    border-radius: 2px;
+                    height: 40.43mm; /* Уменьшена высота на 1.32mm (5px) */
+                    width: 100%;
+                    border-radius: 1px;
                 }
                 
-                @media print {
-                    body {
-                        padding: 0;
-                    }
-                    
-                    .barcode-section {
-                        border: 1px solid #ddd;
-                        page-break-inside: avoid;
-                    }
+                .width-info {
+                    font-size: 3mm;
+                    font-weight: bold;
+                    margin-top: -3mm; /* Отрицательный отступ */
+                    color: #000;
+                    text-align: center;
                 }
             </style>
         </head>
         <body>
-            <div class="fabric-info">
-                <div class="fabric-name">${rollInfo.fabric}</div>
-                <div class="fabric-color">${rollInfo.color} (№${rollInfo.colorNumber})</div>
-                <div class="fabric-details">
-                    <strong>Ширина:</strong> ${rollInfo.width} м
-                </div>
+            <div class="label-info">
+                <div class="info-line"><strong>N:</strong> ${rollInfo.fabric}</div>
+                <div class="info-line"><strong>C:</strong> ${rollInfo.color}</div>
             </div>
             
-            <div class="barcode-section">
-                <div class="barcode-image">
-                    ${barcodeContainer.querySelector('.barcode-image-wrapper, .barcode-fallback').outerHTML}
-                </div>
+            <div class="barcode-area">
+                ${barcodeHtml}
+                <div class="width-info"><strong>W:</strong> ${rollInfo.width} м</div>
             </div>
         </body>
         </html>
@@ -376,15 +434,13 @@ function printBarcodeOnly() {
     printWindow.document.write(printContent);
     printWindow.document.close();
     
-    // Ждем загрузки и печатаем
+    // Ждем загрузки, печатаем и закрываем окно через 3 секунды
     printWindow.onload = function() {
+        printWindow.print();
         setTimeout(() => {
-            printWindow.print();
-            // Закрываем окно после печати
-            printWindow.onafterprint = function() {
-                printWindow.close();
-            };
-        }, 500);
+            printWindow.close();
+            window.close(); // Закрываем текущую форму
+        }, 3000); // 3 секунды
     };
 }
 
