@@ -1,3 +1,9 @@
+import os
+import django
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crm_fabrics.settings')
+django.setup()
+
 from django.contrib.auth.models import User, Group
 from core.models import UserProfile, SystemSettings
 

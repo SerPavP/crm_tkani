@@ -23,10 +23,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-0c^)*30v3!oc)b-@wpyjv(!q=rf=69v*uw=jcr076kuf6!$mi5'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*']
-
+ALLOWED_HOSTS = [
+    '34.51.199.26',  # новый IP
+    'crm-tkani.kz',  # твой домен
+    'localhost',
+    '127.0.0.1',
+]
 
 # Application definition
 
