@@ -606,9 +606,8 @@ def export_deal_pdf(request, deal_id):
         ]
         table_data.append(row)
     
-    # Итоговые строки
+    # Итоговая строка
     table_data.append(["", "", "", "", "Итого:", f"{format_price_for_display(deal.total_amount)} ₸"])
-    table_data.append(["", "", "", "", "Итого (с НДС):", f"{format_price_for_display(deal.total_with_vat)} ₸"])
 
     # Создаем таблицу с фиксированными ширинами колонок - увеличиваем ширину для лучшего отображения
     col_widths = [1*cm, 5*cm, 4*cm, 2.5*cm, 3*cm, 3*cm]
@@ -635,11 +634,11 @@ def export_deal_pdf(request, deal_id):
         ("ALIGN", (1, 1), (2, -1), "LEFT"),    # Ткань и цвет по левому краю
         ("ALIGN", (3, 1), (5, -1), "CENTER"),  # Количество, цена и сумма по центру
         
-        # Итоговые строки - желтый фон с черным текстом
-        ("BACKGROUND", (0, -2), (-1, -1), colors.yellow),
-        ("TEXTCOLOR", (0, -2), (-1, -1), colors.black),
-        ("FONTWEIGHT", (4, -2), (5, -1), "BOLD"),
-        ("FONTSIZE", (0, -2), (-1, -1), 14),
+        # Итоговая строка - желтый фон с черным текстом
+        ("BACKGROUND", (0, -1), (-1, -1), colors.yellow),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.black),
+        ("FONTWEIGHT", (4, -1), (5, -1), "BOLD"),
+        ("FONTSIZE", (0, -1), (-1, -1), 14),
         
         # Границы
         ("GRID", (0, 0), (-1, -1), 1, colors.black),
@@ -701,16 +700,14 @@ def export_deal_excel(request, deal_id):
 
     # Totals
     ws.append(["", "", "", "", "Итого:", f"{deal.total_amount} ₸"])
-    ws.append(["", "", "", "", "Итого (с НДС):", f"{deal.total_with_vat} ₸"])
 
-    # Apply bold font and borders to total rows
-    for row_idx in range(ws.max_row - 1, ws.max_row + 1):
+    # Apply bold font and borders to total row
+    for row_idx in range(ws.max_row, ws.max_row + 1):
         for col_idx in range(1, ws.max_column + 1):
             ws.cell(row=row_idx, column=col_idx).font = Font(bold=True, size=14)
             ws.cell(row=row_idx, column=col_idx).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
-    # Merge cells for totals
-    ws.merge_cells(start_row=ws.max_row - 1, start_column=1, end_row=ws.max_row - 1, end_column=5)
+    # Merge cells for total
     ws.merge_cells(start_row=ws.max_row, start_column=1, end_row=ws.max_row, end_column=5)
 
     # Adjust column widths

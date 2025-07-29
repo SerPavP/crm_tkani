@@ -38,8 +38,8 @@ def fabric_list(request):
             fabrics_without_rolls.append(fabric)
     
     # Сортируем каждую группу по коду цвета
-    fabrics_with_rolls.sort(key=lambda x: x.fabriccolor_set.first().color_number if x.fabriccolor_set.exists() else 9999)
-    fabrics_without_rolls.sort(key=lambda x: x.fabriccolor_set.first().color_number if x.fabriccolor_set.exists() else 9999)
+    fabrics_with_rolls.sort(key=lambda x: int(x.fabriccolor_set.first().color_number) if x.fabriccolor_set.exists() and x.fabriccolor_set.first().color_number.isdigit() else 9999)
+    fabrics_without_rolls.sort(key=lambda x: int(x.fabriccolor_set.first().color_number) if x.fabriccolor_set.exists() and x.fabriccolor_set.first().color_number.isdigit() else 9999)
     
     # Объединяем списки
     sorted_fabrics = fabrics_with_rolls + fabrics_without_rolls
@@ -73,8 +73,8 @@ def fabric_detail(request, fabric_id):
             colors_without_rolls.append(color)
     
     # Сортируем каждую группу по номеру цвета
-    colors_with_rolls.sort(key=lambda x: x.color_number)
-    colors_without_rolls.sort(key=lambda x: x.color_number)
+    colors_with_rolls.sort(key=lambda x: int(x.color_number) if x.color_number.isdigit() else 9999)
+    colors_without_rolls.sort(key=lambda x: int(x.color_number) if x.color_number.isdigit() else 9999)
     
     # Объединяем списки
     sorted_colors = colors_with_rolls + colors_without_rolls
@@ -274,4 +274,43 @@ def fabric_delete(request, fabric_id):
     
     return redirect('fabrics:fabric_list')
 
+
+@login_required
+@require_POST
+def color_delete(request, color_id):
+    """Удаление цвета ткани"""
+    if not request.user.userprofile.can_manage_fabrics:
+        messages.error(request, 'У вас нет прав для удаления цветов.')
+        return redirect('fabrics:fabric_list')
+    
+    color = get_object_or_404(FabricColor, id=color_id)
+    fabric = color.fabric
+    color_name = color.color_name
+    color_number = color.color_number
+    
+    # Подсчитываем количество связанных объектов
+    rolls_count = FabricRoll.objects.filter(fabric_color=color).count()
+    active_rolls_count = FabricRoll.objects.filter(fabric_color=color, is_active=True).count()
+    
+    try:
+        # Удаляем цвет (каскадное удаление удалит все связанные рулоны)
+        color.delete()
+        
+        # Логирование
+        ActivityLog.objects.create(
+            user=request.user,
+            action='delete',
+            object_type='FabricColor',
+            object_id=color_id,
+            description=f'Удален цвет: {color_name} ({color_number}) для ткани {fabric.name} (рулонов: {rolls_count}, активных: {active_rolls_count})'
+        )
+        
+        messages.success(request, f'Цвет "{color_name}" успешно удален.')
+        if rolls_count > 0:
+            messages.warning(request, f'Внимание: было удалено {rolls_count} рулонов этого цвета.')
+        
+    except Exception as e:
+        messages.error(request, f'Ошибка при удалении цвета: {str(e)}')
+    
+    return redirect('fabrics:fabric_detail', fabric_id=fabric.id)
 

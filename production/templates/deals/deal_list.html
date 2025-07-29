@@ -52,8 +52,10 @@
                             <th>Клиент</th>
                             <th>Статус</th>
                             <th>Дата создания</th>
-                            <th>Сумма (без НДС)</th>
-                            <th>Сумма (с НДС)</th>
+                            <th>Сумма</th>
+                            {% if user.userprofile.role == 'admin' %}
+                                <th>Прибыль</th>
+                            {% endif %}
                             <th>Действия</th>
                         </tr>
                     </thead>
@@ -82,7 +84,9 @@
                                 </td>
                                 <td>{{ deal.created_at|date:"d.m.Y H:i" }}</td>
                                 <td><strong>{{ deal.total_amount|format_price }} ₸</strong></td>
-                                <td><strong>{{ deal.total_with_vat|format_price }} ₸</strong></td>
+                                {% if user.userprofile.role == 'admin' %}
+                                    <td><strong class="text-success">{{ deal.total_profit|format_price }} ₸</strong></td>
+                                {% endif %}
                                 <td onclick="event.stopPropagation();">
                                     <div class="btn-group" role="group">
                                         <a href="{% url 'deals:deal_detail' deal.id %}" 

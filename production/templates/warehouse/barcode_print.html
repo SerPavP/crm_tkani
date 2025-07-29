@@ -14,16 +14,22 @@
 
 <!-- Большие кнопки действий -->
 <div class="row mb-4">
-    <div class="col-md-6">
+    <div class="col-md-4">
         <button onclick="printBarcodeOnly()" class="btn btn-primary btn-lg w-100" style="padding: 15px;">
             <i class="bi bi-printer" style="font-size: 1.5em;"></i>
             <div class="mt-1" style="font-size: 1.2em;">Печать штрих-кода</div>
         </button>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-4">
         <a href="{% url 'warehouse:scan_barcode' %}?barcode={{ barcode }}" class="btn btn-success btn-lg w-100" style="padding: 15px;">
             <i class="bi bi-qr-code-scan" style="font-size: 1.5em;"></i>
             <div class="mt-1" style="font-size: 1.2em;">Сканировать рулон</div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="{% url 'warehouse:create_barcode' %}?fabric={{ roll.fabric_color.fabric.id }}&color={{ roll.fabric_color.id }}" class="btn btn-info btn-lg w-100" style="padding: 15px;">
+            <i class="bi bi-plus-circle" style="font-size: 1.5em;"></i>
+            <div class="mt-1" style="font-size: 1.2em;">Создать новый штрих-код</div>
         </a>
     </div>
 </div>

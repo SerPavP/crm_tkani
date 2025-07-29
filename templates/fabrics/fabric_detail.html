@@ -27,16 +27,14 @@
             <a href="{% url 'fabrics:fabric_edit' fabric.id %}" class="btn btn-primary me-2">
                 <i class="bi bi-pencil"></i> Редактировать
             </a>
-            {% if user.userprofile.role == 'admin' %}
-                <button class="btn btn-danger" 
-                        data-fabric-id="{{ fabric.id }}"
-                        data-fabric-name="{{ fabric.name|escapejs }}"
-                        data-deals-count="{{ fabric.deals_count }}"
-                        data-colors-count="{{ fabric.fabriccolor_set.count }}"
-                        onclick="confirmDeleteFabric(this)">
-                    <i class="bi bi-trash"></i> Удалить ткань
-                </button>
-            {% endif %}
+            <button class="btn btn-danger" 
+                    data-fabric-id="{{ fabric.id }}"
+                    data-fabric-name="{{ fabric.name|escapejs }}"
+                    data-deals-count="{{ fabric.deals_count }}"
+                    data-colors-count="{{ fabric.fabriccolor_set.count }}"
+                    onclick="confirmDeleteFabric(this)">
+                <i class="bi bi-trash"></i> Удалить ткань
+            </button>
         </div>
     {% endif %}
 </div>
@@ -119,7 +117,14 @@
                                         {% if rolls %}
                                             <div class="d-flex align-items-center">
                                                 <span class="badge bg-success me-2">{{ rolls|length }}</span>
-                                                <span class="fw-bold">{{ rolls|join:" " }}</span>
+                                                <div class="rolls-container" style="max-width: 300px;">
+                                                    {% for roll in rolls %}
+                                                        <span class="badge bg-light text-dark me-1 mb-1">{{ roll }}</span>
+                                                        {% if forloop.counter|divisibleby:12 and not forloop.last %}
+                                                            <br>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
                                             </div>
                                         {% else %}
                                             <span class="badge bg-danger">Нет в наличии</span>
@@ -150,6 +155,14 @@
                                         <a href="{% url 'fabrics:color_edit' color.id %}" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-pencil"></i> Редактировать
                                         </a>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                data-color-id="{{ color.id }}"
+                                                data-color-name="{{ color.color_name|escapejs }}"
+                                                data-color-number="{{ color.color_number }}"
+                                                data-rolls-count="{{ color.active_rolls_simple|length }}"
+                                                onclick="confirmDeleteColor(this)">
+                                            <i class="bi bi-trash"></i> Удалить
+                                        </button>
                                         {% endif %}
                                     </div>
                                     </td>
@@ -204,6 +217,45 @@ function confirmDeleteFabric(button) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/fabrics/${fabricId}/delete/`;
+        
+        // Добавляем CSRF токен
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function confirmDeleteColor(button) {
+    const colorId = button.dataset.colorId;
+    const colorName = button.dataset.colorName;
+    const colorNumber = button.dataset.colorNumber;
+    const rollsCount = parseInt(button.dataset.rollsCount);
+    
+    let message = `Вы уверены, что хотите удалить цвет "${colorName}" (№${colorNumber})?\n\n`;
+    
+    if (rollsCount > 0) {
+        message += `⚠️ ВНИМАНИЕ: У этого цвета есть ${rollsCount} активных рулонов на складе!\n`;
+    }
+    
+    message += `\nПри удалении цвета:\n`;
+    message += `• Все рулоны этого цвета будут удалены\n`;
+    if (rollsCount > 0) {
+        message += `• ${rollsCount} рулонов будет потеряно\n`;
+    }
+    
+    message += `\nЭто действие нельзя отменить!`;
+    
+    if (confirm(message)) {
+        // Создаем форму для отправки POST запроса
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/fabrics/colors/${colorId}/delete/`;
         
         // Добавляем CSRF токен
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;

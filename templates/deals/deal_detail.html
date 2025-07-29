@@ -144,12 +144,8 @@
                     </tr>
                     {% if user.userprofile.role != 'accountant' %}
                     <tr>
-                        <td><strong>Общая сумма (без НДС):</strong></td>
+                        <td><strong>Общая сумма:</strong></td>
                         <td><strong class="text-success">{{ deal.total_amount|format_price }} ₸</strong></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Общая сумма (с НДС):</strong></td>
-                        <td><strong class="text-success">{{ deal.total_with_vat|format_price }} ₸</strong></td>
                     </tr>
                     {% endif %}
                 </table>

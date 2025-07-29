@@ -476,10 +476,15 @@ def change_user_password(request):
             from django.contrib.auth.models import User
             
             user_id = request.POST.get('user_id')
+            old_password = request.POST.get('old_password')
             new_password = request.POST.get('new_password')
+            confirm_password = request.POST.get('confirm_password')
             
-            if not user_id or not new_password:
+            if not user_id or not old_password or not new_password or not confirm_password:
                 return JsonResponse({'success': False, 'error': 'Не указаны обязательные параметры'})
+            
+            if new_password != confirm_password:
+                return JsonResponse({'success': False, 'error': 'Новые пароли не совпадают'})
             
             user_to_update = User.objects.get(id=user_id)
             
@@ -487,13 +492,82 @@ def change_user_password(request):
             if user_to_update.id == request.user.id:
                 return JsonResponse({'success': False, 'error': 'Нельзя изменять свой пароль через эту функцию'})
             
+            # Проверяем старый пароль
+            if not user_to_update.check_password(old_password):
+                return JsonResponse({'success': False, 'error': 'Неверный старый пароль'})
+            
             user_to_update.set_password(new_password)
             user_to_update.save()
+            
+            # Сохраняем пароль в txt файл
+            import os
+            from datetime import datetime
+            
+            # Создаем папку для паролей если её нет
+            passwords_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'passwords')
+            if not os.path.exists(passwords_dir):
+                os.makedirs(passwords_dir)
+            
+            # Записываем пароль в файл
+            password_file = os.path.join(passwords_dir, 'user_passwords.txt')
+            with open(password_file, 'a', encoding='utf-8') as f:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                f.write(f'{timestamp} - Пользователь {user_to_update.username} ({user_to_update.userprofile.get_role_display()}): {new_password}\n')
             
             return JsonResponse({'success': True})
             
         except User.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Пользователь не найден'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Метод не поддерживается'})
+
+
+@login_required
+@require_POST
+def change_admin_password(request):
+    """Смена пароля администратора с сохранением в txt файл"""
+    if request.user.userprofile.role != 'admin':
+        return JsonResponse({'success': False, 'error': 'Нет прав для выполнения операции'})
+    
+    if request.method == 'POST':
+        try:
+            old_password = request.POST.get('old_password')
+            new_password = request.POST.get('new_password')
+            confirm_password = request.POST.get('confirm_password')
+            
+            if not old_password or not new_password or not confirm_password:
+                return JsonResponse({'success': False, 'error': 'Не указаны обязательные параметры'})
+            
+            if new_password != confirm_password:
+                return JsonResponse({'success': False, 'error': 'Новые пароли не совпадают'})
+            
+            # Проверяем старый пароль
+            if not request.user.check_password(old_password):
+                return JsonResponse({'success': False, 'error': 'Неверный старый пароль'})
+            
+            # Изменяем пароль текущего админа
+            request.user.set_password(new_password)
+            request.user.save()
+            
+            # Сохраняем пароль в txt файл
+            import os
+            from datetime import datetime
+            
+            # Создаем папку для паролей если её нет
+            passwords_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'passwords')
+            if not os.path.exists(passwords_dir):
+                os.makedirs(passwords_dir)
+            
+            # Записываем пароль в файл
+            password_file = os.path.join(passwords_dir, 'admin_passwords.txt')
+            with open(password_file, 'a', encoding='utf-8') as f:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                f.write(f'{timestamp} - Администратор {request.user.username}: {new_password}\n')
+            
+            return JsonResponse({'success': True})
+            
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     
@@ -685,4 +759,42 @@ def get_period_data(request):
     }
 
     return JsonResponse(response_data)
+
+
+@login_required
+def change_user_password_page(request):
+    """Страница для смены пароля пользователей (только для админа)"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.role != 'admin':
+        return redirect('core:home')
+    
+    from django.contrib.auth.models import User
+    from core.models import UserProfile
+    
+    # Получаем всех пользователей с их ролями
+    users = []
+    for user in User.objects.all():
+        try:
+            profile = user.userprofile
+            users.append({
+                'id': user.id,
+                'username': user.username,
+                'role': profile.get_role_display(),
+                'role_code': profile.role
+            })
+        except UserProfile.DoesNotExist:
+            continue
+    
+    context = {
+        'users': users
+    }
+    return render(request, 'finances/change_user_password.html', context)
+
+
+@login_required
+def change_admin_password_page(request):
+    """Страница для смены пароля администратора"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.role != 'admin':
+        return redirect('core:home')
+    
+    return render(request, 'finances/change_admin_password.html')
 

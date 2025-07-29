@@ -7,14 +7,8 @@ class SystemSettingsForm(forms.ModelForm):
 
     class Meta:
         model = SystemSettings
-        fields = ["vat_rate", "markup_percentage"]
+        fields = ["markup_percentage"]
         widgets = {
-            "vat_rate": forms.NumberInput(attrs={
-                "class": "form-control",
-                "step": "0.01",
-                "min": "0.00",
-                "placeholder": "Ставка НДС в процентах"
-            }),
             "markup_percentage": forms.NumberInput(attrs={
                 "class": "form-control",
                 "step": "0.01",
@@ -23,7 +17,6 @@ class SystemSettingsForm(forms.ModelForm):
             }),
         }
         labels = {
-            "vat_rate": "Ставка НДС (%)",
             "markup_percentage": "Автоматическая наценка (%)",
         }
 

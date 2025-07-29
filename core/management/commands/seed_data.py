@@ -66,7 +66,6 @@ class Command(BaseCommand):
                     fabric=fabric,
                     color_name=fake.color_name(),
                     color_hex=fake.hex_color(),
-                    price_per_meter=round(random.uniform(500, 5000), 2),
                     color_number=fake.unique.random_int(min=100, max=999)
                 )
             self.stdout.write(f'  Created fabric: {fabric.name} with colors')
@@ -98,7 +97,7 @@ class Command(BaseCommand):
             for _ in range(num_items):
                 fabric_color = random.choice(fabric_colors)
                 meters = round(random.uniform(5, 30), 2)
-                price_per_meter = fabric_color.price_per_meter
+                price_per_meter = fabric_color.fabric.cost_price
                 item_total = Decimal(str(meters)) * price_per_meter
                 DealItem.objects.create(
                     deal=deal,

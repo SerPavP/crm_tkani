@@ -543,9 +543,8 @@ def export_deal_pdf(request, deal_id):
             f"{format_price_for_display(item.total_price)} ₸"
         ])
     
-    # Добавляем итоговые строки в таблицу
+    # Добавляем итоговую строку в таблицу
     data.append(["", "", "", "", "Итого:", f"{format_price_for_display(deal.total_amount)} ₸"])
-    data.append(["", "", "", "", "Итого (с НДС):", f"{format_price_for_display(deal.total_with_vat)} ₸"])
 
     table = Table(data)
     
@@ -622,16 +621,14 @@ def export_deal_excel(request, deal_id):
 
     # Totals
     ws.append(["", "", "", "", "Итого:", f"{deal.total_amount} ₸"])
-    ws.append(["", "", "", "", "Итого (с НДС):", f"{deal.total_with_vat} ₸"])
 
-    # Apply bold font and borders to total rows
-    for row_idx in range(ws.max_row - 1, ws.max_row + 1):
+    # Apply bold font and borders to total row
+    for row_idx in range(ws.max_row, ws.max_row + 1):
         for col_idx in range(1, ws.max_column + 1):
             ws.cell(row=row_idx, column=col_idx).font = Font(bold=True)
             ws.cell(row=row_idx, column=col_idx).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
-    # Merge cells for totals
-    ws.merge_cells(start_row=ws.max_row - 1, start_column=1, end_row=ws.max_row - 1, end_column=5)
+    # Merge cells for total
     ws.merge_cells(start_row=ws.max_row, start_column=1, end_row=ws.max_row, end_column=5)
 
     # Adjust column widths

@@ -122,63 +122,7 @@ function changePassword(userId, username) {
             </div>
         </div>
 
-        <!-- Управление пользователями (только для админа) -->
-        {% if user.userprofile.role == 'admin' %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-people-fill"></i> Управление пользователями</h5>
-                <small class="text-muted">В системе 3 роли по 1 пользователю каждой</small>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Пользователь</th>
-                                <th>Роль</th>
-                                <th>Дата создания</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for user_obj in all_users %}
-                                {% if user_obj.id != user.id %}
-                                    <tr>
-                                        <td>
-                                            <strong>{{ user_obj.username }}</strong>
-                                            {% if user_obj.first_name or user_obj.last_name %}
-                                                <div class="small text-muted">{{ user_obj.first_name }} {{ user_obj.last_name }}</div>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-{% if user_obj.userprofile.role == 'admin' %}danger{% elif user_obj.userprofile.role == 'accountant' %}success{% else %}warning{% endif %}">
-                                                {{ user_obj.userprofile.get_role_display }}
-                                            </span>
-                                        </td>
-                                        <td>{{ user_obj.date_joined|date:"d.m.Y" }}</td>
-                                        <td>
-                                            <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                        onclick="recreateUser({{ user_obj.id }}, '{{ user_obj.username }}')"
-                                                        title="Переделать заново">
-                                                    <i class="bi bi-arrow-repeat"></i> Переделать заново
-                                                </button>
-                                            <button type="button" class="btn btn-sm btn-outline-warning" 
-                                                    onclick="changePassword({{ user_obj.id }}, '{{ user_obj.username }}')"
-                                                        title="Поменять пароль">
-                                                    <i class="bi bi-key"></i> Поменять пароль
-                                            </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                {% endif %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+
 
         <!-- Системная информация -->
         <div class="card">
@@ -236,6 +180,31 @@ function changePassword(userId, username) {
             </div>
         </div>
 
+        <!-- Смена паролей (только для админа) -->
+        {% if user.userprofile.role == 'admin' %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Управление паролями</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'finances:change_user_password_page' %}" class="btn btn-warning btn-lg w-100" style="padding: 20px;">
+                            <i class="bi bi-people" style="font-size: 2rem;"></i>
+                            <div class="mt-2" style="font-size: 1.2rem; font-weight: 500;">Сменить пароли пользователей</div>
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'finances:change_admin_password_page' %}" class="btn btn-danger btn-lg w-100" style="padding: 20px;">
+                            <i class="bi bi-shield-lock" style="font-size: 2rem;"></i>
+                            <div class="mt-2" style="font-size: 1.2rem; font-weight: 500;">Сменить пароль администратора</div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card mt-3">
             <div class="card-header">
                 <h6 class="mb-0"><i class="bi bi-gear"></i> Другие настройки</h6>
@@ -245,7 +214,6 @@ function changePassword(userId, username) {
                     <a href="{% url 'finances:set_fabric_cost_price' %}" class="btn btn-outline-info btn-sm">
                         <i class="bi bi-currency-exchange"></i> Себестоимость тканей
                     </a>
-                    {% comment %} (pr2) Добавить кнопки для экспорта/импорта/очистки/резервной копии {% endcomment %}
                     {% if user.userprofile.role == 'admin' %}
                         <button type="button" class="btn btn-outline-success btn-sm" onclick="exportData()">
                             <i class="bi bi-download"></i> Экспортировать данные
@@ -275,89 +243,60 @@ function changePassword(userId, username) {
             </div>
         </div>
         {% endif %}
+        
+
     </div>
 </div>
 
-{% if user.userprofile.role == 'admin' %}
-<!-- Модальное окно смены пароля -->
-<div class="modal fade" id="changePasswordModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Смена пароля</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="changePasswordForm">
-                    {% csrf_token %}
-                    <input type="hidden" id="userId" name="user_id">
-                    <div class="mb-3">
-                        <label for="newPassword" class="form-label">Новый пароль</label>
-                        <input type="password" class="form-control" id="newPassword" name="new_password" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="confirmPassword" class="form-label">Подтвердите пароль</label>
-                        <input type="password" class="form-control" id="confirmPassword" name="confirm_password" required>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                <button type="button" class="btn btn-primary" onclick="saveNewPassword()">Сохранить</button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
 {% if user.userprofile.role == 'admin' %}
 <script>
 function changePassword(userId, username) {
-    document.getElementById('userId').value = userId;
-    document.querySelector('#changePasswordModal .modal-title').innerHTML = `Смена пароля для: ${username}`;
-    new bootstrap.Modal(document.getElementById('changePasswordModal')).show();
-}
-
-function saveNewPassword() {
-    const form = document.getElementById('changePasswordForm');
-    const formData = new FormData(form);
+    const oldPassword = prompt(`Введите текущий пароль пользователя "${username}":`);
+    if (!oldPassword) return;
     
-    const newPassword = formData.get('new_password');
-    const confirmPassword = formData.get('confirm_password');
+    const newPassword = prompt(`Введите новый пароль для пользователя "${username}":`);
+    if (!newPassword) return;
+    
+    const confirmPassword = prompt(`Подтвердите новый пароль для пользователя "${username}":`);
+    if (!confirmPassword) return;
     
     if (newPassword !== confirmPassword) {
-        alert('Пароли не совпадают');
+        alert('Новые пароли не совпадают!');
         return;
     }
     
-    if (newPassword.length < 6) {
-        alert('Пароль должен содержать минимум 6 символов');
+    if (newPassword.length < 4) {
+        alert('Пароль должен содержать минимум 4 символа');
         return;
     }
     
-    fetch('/finances/change-password/', {
+    fetch('/finances/change-user-password/', {
         method: 'POST',
-        body: formData,
         headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         },
+        body: `user_id=${userId}&old_password=${encodeURIComponent(oldPassword)}&new_password=${encodeURIComponent(newPassword)}&confirm_password=${encodeURIComponent(confirmPassword)}`
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Пароль успешно изменен');
-            bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+            alert('Пароль успешно изменен!');
         } else {
-            alert('Ошибка: ' + data.error);
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Произошла ошибка при смене пароля');
+        alert('Ошибка при смене пароля');
     });
 }
+
+
 
 function exportData() {
     if (confirm('Экспортировать все данные CRM в файл Excel?')) {
@@ -381,6 +320,43 @@ function cleanupData() {
 
 function backupData() {
     alert('Функция создания резервной копии будет реализована позже');
+}
+
+function changeAdminPassword() {
+    const oldPassword = prompt('Введите текущий пароль администратора:');
+    if (!oldPassword) return;
+    
+    const newPassword = prompt('Введите новый пароль для администратора:');
+    if (!newPassword) return;
+    
+    const confirmPassword = prompt('Подтвердите новый пароль для администратора:');
+    if (!confirmPassword) return;
+    
+    if (newPassword !== confirmPassword) {
+        alert('Новые пароли не совпадают!');
+        return;
+    }
+    
+    fetch('/finances/change-admin-password/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `old_password=${encodeURIComponent(oldPassword)}&new_password=${encodeURIComponent(newPassword)}&confirm_password=${encodeURIComponent(confirmPassword)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Пароль администратора успешно изменен!');
+        } else {
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка при смене пароля администратора');
+    });
 }
 </script>
 {% endif %}
