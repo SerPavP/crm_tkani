@@ -98,9 +98,16 @@ def fabric_detail(request, fabric_id):
     # Объединяем списки
     sorted_colors = colors_with_rolls + colors_without_rolls
     
+    # Подсчитываем общее количество рулонов для всех цветов ткани
+    total_rolls_count = FabricRoll.objects.filter(
+        fabric_color__fabric=fabric,
+        is_active=True
+    ).count()
+    
     context = {
         'fabric': fabric,
         'colors': sorted_colors,
+        'total_rolls_count': total_rolls_count,
     }
     return render(request, 'fabrics/fabric_detail.html', context)
 

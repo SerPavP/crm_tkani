@@ -41,7 +41,7 @@
 
 <!-- Статистика -->
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title">{{ fabric.total_width_meters_formatted }}</h5>
@@ -49,8 +49,16 @@
             </div>
         </div>
     </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">{{ total_rolls_count }} шт.</h5>
+                <p class="card-text text-muted">Всего рулонов</p>
+            </div>
+        </div>
+    </div>
     {% if user.userprofile.role == 'admin' %}
-        <div class="col-md-4">
+        <div class="col-md-2">
             <div class="card text-center">
                 <div class="card-body">
                     <h5 class="card-title">{{ fabric.cost_price|format_price }} ₸</h5>
@@ -58,11 +66,19 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-2">
             <div class="card text-center">
                 <div class="card-body">
                     <h5 class="card-title">{{ fabric.selling_price|format_price }} ₸</h5>
                     <p class="card-text text-muted">Текущая цена</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">{{ colors|length }}</h5>
+                    <p class="card-text text-muted">Цветов в наличии</p>
                 </div>
             </div>
         </div>

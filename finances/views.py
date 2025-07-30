@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.models import User
 from deals.models import Deal, DealItem
-from fabrics.models import Fabric, FabricColor
+from fabrics.models import Fabric, FabricColor, FabricRoll
 from .models import SystemSettings
 from .forms import SystemSettingsForm
 from datetime import date, timedelta, datetime
@@ -82,6 +82,23 @@ def financial_dashboard(request):
     avg_check_trend = ((current_period_avg_check - previous_period_avg_check) / previous_period_avg_check * 100) if previous_period_avg_check > 0 else 0
     deals_count_trend = current_period_deals_count - previous_period_deals_count
     clients_count_trend = current_period_clients_count - previous_period_clients_count
+    
+    # Данные о рулонах за текущий период
+    current_period_rolls = FabricRoll.objects.filter(
+        created_at__date__gte=current_period_start,
+        created_at__date__lte=current_period_end
+    )
+    current_period_rolls_count = current_period_rolls.count()
+    
+    # Данные о рулонах за предыдущий период
+    previous_period_rolls = FabricRoll.objects.filter(
+        created_at__date__gte=previous_period_start,
+        created_at__date__lte=previous_period_end
+    )
+    previous_period_rolls_count = previous_period_rolls.count()
+    
+    # Тренд рулонов
+    rolls_count_trend = current_period_rolls_count - previous_period_rolls_count
     
     # Быстрые периоды
     today_deals = Deal.objects.filter(created_at__date=date.today(), status='paid')
@@ -286,6 +303,7 @@ def financial_dashboard(request):
         'current_period_margin': current_period_margin,
         'current_period_deals_count': current_period_deals_count,
         'current_period_avg_check': current_period_avg_check,
+        'current_period_rolls_count': current_period_rolls_count,
         
         # Тренды
         'revenue_trend': revenue_trend,
@@ -293,6 +311,7 @@ def financial_dashboard(request):
         'margin_trend': margin_trend,
         'avg_check_trend': avg_check_trend,
         'deals_count_trend': deals_count_trend,
+        'rolls_count_trend': rolls_count_trend,
         
         # Быстрые периоды
         'today_revenue': today_revenue,

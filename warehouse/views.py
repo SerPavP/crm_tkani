@@ -138,9 +138,13 @@ def manage_rolls(request):
 @login_required
 def view_rolls(request):
     """Просмотр рулонов для складовщика"""
+    from datetime import datetime, date
+    
     search_query = request.GET.get('search', '')
     fabric_filter = request.GET.get('fabric', '')
     color_filter = request.GET.get('color', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
 
     rolls = FabricRoll.objects.select_related('fabric_color__fabric').filter(is_active=True)
 
@@ -152,6 +156,21 @@ def view_rolls(request):
 
     if color_filter:
         rolls = rolls.filter(fabric_color__id=color_filter)
+
+    # Фильтрация по периоду
+    if date_from:
+        try:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+            rolls = rolls.filter(created_at__date__gte=date_from_obj)
+        except ValueError:
+            pass
+    
+    if date_to:
+        try:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+            rolls = rolls.filter(created_at__date__lte=date_to_obj)
+        except ValueError:
+            pass
 
     rolls = rolls.order_by('-created_at')
 
@@ -166,6 +185,8 @@ def view_rolls(request):
         'search_query': search_query,
         'fabric_filter': fabric_filter,
         'color_filter': color_filter,
+        'date_from': date_from,
+        'date_to': date_to,
         'unique_fabrics': unique_fabrics,
     }
     return render(request, 'warehouse/view_rolls.html', context)

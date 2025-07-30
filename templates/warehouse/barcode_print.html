@@ -27,9 +27,9 @@
         </a>
     </div>
     <div class="col-md-4">
-        <a href="{% url 'warehouse:create_barcode' %}?fabric={{ roll.fabric_color.fabric.id }}&color={{ roll.fabric_color.id }}" class="btn btn-info btn-lg w-100" style="padding: 15px;">
+        <a href="{% url 'warehouse:create_barcode' %}?fabric_id={{ roll.fabric_color.fabric.id }}&color_id={{ roll.fabric_color.id }}" class="btn btn-info btn-lg w-100" style="padding: 15px;">
             <i class="bi bi-plus-circle" style="font-size: 1.5em;"></i>
-            <div class="mt-1" style="font-size: 1.2em;">Создать новый штрих-код</div>
+            <div class="mt-1" style="font-size: 1.2em;">Повторить штрих кода по Ткани</div>
         </a>
     </div>
 </div>
@@ -116,8 +116,8 @@
                     <button onclick="printBarcodeOnly()" class="btn btn-primary">
                         <i class="bi bi-printer"></i> Печать штрих-кода
                     </button>
-                    <a href="{% url 'warehouse:create_barcode' %}" class="btn btn-outline-success">
-                        <i class="bi bi-plus-circle"></i> Создать новый рулон
+                    <a href="{% url 'warehouse:create_barcode' %}?fabric_id={{ roll.fabric_color.fabric.id }}&color_id={{ roll.fabric_color.id }}" class="btn btn-outline-success">
+                        <i class="bi bi-plus-circle"></i> Повторить штрих кода по Ткани
                     </a>
                     <a href="{% url 'warehouse:scan_barcode' %}?barcode={{ roll.barcode }}" class="btn btn-outline-warning">
                         <i class="bi bi-upc-scan"></i> Сканировать рулон

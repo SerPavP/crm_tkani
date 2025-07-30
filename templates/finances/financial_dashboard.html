@@ -66,13 +66,18 @@
 </div>
 
 <!-- KPI-блоки -->
+<div class="row mb-3">
+    <div class="col-12">
+        <h4 class="text-muted"><i class="bi bi-graph-up"></i> Статистика за этот месяц</h4>
+    </div>
+</div>
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="card kpi-card text-white bg-primary">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h6 class="card-title">Выручка за период</h6>
+                        <h6 class="card-title">Общая продажа</h6>
                         <h4 class="mb-0">{{ current_period_revenue|format_price }} ₸</h4>
                         <small class="trend-up">
                             {% if revenue_trend > 0 %}↑{% else %}↓{% endif %} 
@@ -91,7 +96,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h6 class="card-title">Прибыль за период</h6>
+                        <h6 class="card-title">Общая выручка</h6>
                         <h4 class="mb-0">{{ current_period_profit|format_price }} ₸</h4>
                         <small class="trend-up">
                             {% if profit_trend > 0 %}↑{% else %}↓{% endif %} 
@@ -181,6 +186,25 @@
             </div>
         </div>
     </div>
+    <div class="col-md-3">
+        <div class="card kpi-card text-white bg-dark">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Рулоны за месяц</h6>
+                        <h4 class="mb-0">{{ current_period_rolls_count }} шт.</h4>
+                        <small class="trend-up">
+                            {% if rolls_count_trend > 0 %}↑{% else %}↓{% endif %} 
+                            {% if rolls_count_trend < 0 %}{{ rolls_count_trend|mul:-1 }}{% else %}{{ rolls_count_trend }}{% endif %} шт.
+                        </small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-box display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Переключатель режимов -->
@@ -250,13 +274,13 @@
                             <div class="card-header">
                                 <ul class="nav nav-tabs card-header-tabs" role="tablist">
                                     <li class="nav-item">
-                                        <a class="nav-link active" data-bs-toggle="tab" href="#clients-profit">По прибыли</a>
+                                        <a class="nav-link active" data-bs-toggle="tab" href="#clients-profit">По выручке</a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link" data-bs-toggle="tab" href="#clients-count">По количеству</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link" data-bs-toggle="tab" href="#clients-sum">По сумме</a>
+                                        <a class="nav-link" data-bs-toggle="tab" href="#clients-sum">По общей продажи</a>
                                     </li>
                                 </ul>
                             </div>

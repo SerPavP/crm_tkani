@@ -39,6 +39,7 @@
     </div>
     <div class="card-body">
         <form method="get" class="row g-3">
+            <!-- Первая строка -->
             <div class="col-md-3">
                 <label for="search" class="form-label">Штрих-код</label>
                 <input type="text" class="form-control" id="search" name="search" 
@@ -66,12 +67,48 @@
                     <i class="bi bi-search"></i> Найти
                 </button>
             </div>
+            
+            <!-- Вторая строка - фильтр по периоду -->
+            <div class="col-md-3">
+                <label for="date_from" class="form-label">Дата с</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" 
+                       value="{{ date_from }}" placeholder="Выберите дату">
+            </div>
+            <div class="col-md-3">
+                <label for="date_to" class="form-label">Дата по</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" 
+                       value="{{ date_to }}" placeholder="Выберите дату">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="button" class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                    <i class="bi bi-x-circle"></i> Очистить фильтры
+                </button>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <div class="btn-group w-100" role="group">
+                    <button type="button" class="btn btn-outline-info" onclick="setTodayPeriod()">
+                        <i class="bi bi-calendar-day"></i> Сегодня
+                    </button>
+                    <button type="button" class="btn btn-outline-info" onclick="setYesterdayPeriod()">
+                        <i class="bi bi-calendar-minus"></i> Вчера
+                    </button>
+                    <button type="button" class="btn btn-outline-info" onclick="setLastWeekPeriod()">
+                        <i class="bi bi-calendar-week"></i> Неделя
+                    </button>
+                </div>
+            </div>
         </form>
     </div>
 </div>
 
 <!-- Список рулонов -->
 <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-boxes"></i> Найденные рулоны</h5>
+        {% if rolls %}
+            <span class="badge bg-primary fs-6">{{ rolls|length }} рулонов</span>
+        {% endif %}
+    </div>
     <div class="card-body">
         {% if rolls %}
             <div class="table-responsive">
@@ -168,6 +205,42 @@
 </div>
 
 <script>
+// Функция для восстановления состояния поля цвета
+function restoreColorField() {
+    const fabricSelect = document.getElementById('fabric');
+    const colorSelect = document.getElementById('color');
+    const fabricId = fabricSelect.value;
+    const colorId = '{{ color_filter }}'; // Получаем выбранный цвет из Django template
+    
+    if (fabricId && colorId) {
+        // Загружаем цвета для выбранной ткани
+        fetch(`/warehouse/api/fabric-colors/?fabric_id=${fabricId}`)
+            .then(response => response.json())
+            .then(data => {
+                colorSelect.innerHTML = '<option value="">Все цвета</option>';
+                
+                data.colors.forEach(color => {
+                    const option = document.createElement('option');
+                    option.value = color.id;
+                    option.textContent = `${color.name} (№${color.number})`;
+                    
+                    // Выбираем нужный цвет
+                    if (color.id == colorId) {
+                        option.selected = true;
+                    }
+                    
+                    colorSelect.appendChild(option);
+                });
+                
+                colorSelect.disabled = false;
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки цветов:', error);
+                colorSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+            });
+    }
+}
+
 // Обработка клика по строке таблицы
 document.addEventListener('DOMContentLoaded', function() {
     const clickableRows = document.querySelectorAll('.clickable-row');
@@ -189,6 +262,9 @@ document.addEventListener('DOMContentLoaded', function() {
             this.style.backgroundColor = '';
         });
     });
+    
+    // Восстанавливаем состояние поля цвета при загрузке страницы
+    restoreColorField();
 });
 
 // Функция показа опций удаления
@@ -215,6 +291,7 @@ function showDeleteOptions(barcode, fabricName, colorName) {
 document.getElementById('fabric').addEventListener('change', function() {
     const fabricId = this.value;
     const colorSelect = document.getElementById('color');
+    const currentColorId = '{{ color_filter }}'; // Получаем текущий выбранный цвет
     
     colorSelect.innerHTML = '<option value="">Загрузка...</option>';
     colorSelect.disabled = true;
@@ -229,6 +306,12 @@ document.getElementById('fabric').addEventListener('change', function() {
                     const option = document.createElement('option');
                     option.value = color.id;
                     option.textContent = `${color.name} (№${color.number})`;
+                    
+                    // Если это та же ткань, сохраняем выбранный цвет
+                    if (currentColorId && color.id == currentColorId) {
+                        option.selected = true;
+                    }
+                    
                     colorSelect.appendChild(option);
                 });
                 
@@ -242,6 +325,54 @@ document.getElementById('fabric').addEventListener('change', function() {
         colorSelect.innerHTML = '<option value="">Сначала выберите ткань</option>';
     }
 });
+
+// Функция очистки всех фильтров
+function clearFilters() {
+    document.getElementById('search').value = '';
+    document.getElementById('fabric').value = '';
+    document.getElementById('color').innerHTML = '<option value="">Сначала выберите ткань</option>';
+    document.getElementById('color').disabled = true;
+    document.getElementById('date_from').value = '';
+    document.getElementById('date_to').value = '';
+    
+    // Перенаправляем на страницу без параметров
+    window.location.href = window.location.pathname;
+}
+
+// Функция установки периода "Сегодня"
+function setTodayPeriod() {
+    const today = new Date().toISOString().split('T')[0];
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.set('date_from', today);
+    currentUrl.searchParams.set('date_to', today);
+    window.location.href = currentUrl.toString();
+}
+
+// Функция установки периода "Вчера"
+function setYesterdayPeriod() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.set('date_from', yesterdayStr);
+    currentUrl.searchParams.set('date_to', yesterdayStr);
+    window.location.href = currentUrl.toString();
+}
+
+// Функция установки периода "Последние 7 дней"
+function setLastWeekPeriod() {
+    const today = new Date();
+    const weekAgo = new Date();
+    weekAgo.setDate(today.getDate() - 7);
+    
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.set('date_from', weekAgo.toISOString().split('T')[0]);
+    currentUrl.searchParams.set('date_to', today.toISOString().split('T')[0]);
+    window.location.href = currentUrl.toString();
+}
+
+
 </script>
 {% endblock %}
 
