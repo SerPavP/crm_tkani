@@ -794,17 +794,19 @@ def change_user_password_page(request):
     from django.contrib.auth.models import User
     from core.models import UserProfile
     
-    # Получаем всех пользователей с их ролями
+    # Получаем всех пользователей с их ролями, исключая текущего администратора
     users = []
     for user in User.objects.all():
         try:
             profile = user.userprofile
-            users.append({
-                'id': user.id,
-                'username': user.username,
-                'role': profile.get_role_display(),
-                'role_code': profile.role
-            })
+            # Исключаем текущего администратора из списка
+            if user.id != request.user.id:
+                users.append({
+                    'id': user.id,
+                    'username': user.username,
+                    'role': profile.get_role_display(),
+                    'role_code': profile.role
+                })
         except UserProfile.DoesNotExist:
             continue
     
