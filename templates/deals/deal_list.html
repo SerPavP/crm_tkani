@@ -97,12 +97,15 @@
                                            class="btn btn-sm btn-outline-secondary" title="Редактировать">
                                             <i class="bi bi-pencil"></i>
                                         </a>
-                                        {% if user.userprofile.role == 'admin' %}
-                                            <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                    onclick="deleteDeal({{ deal.id }}, '{{ deal.deal_number }}')"
+                                        {% if user.userprofile.role == 'admin' or user.userprofile.role == 'accountant' %}
+                                            <form method="post" action="{% url 'deals:deal_delete' deal.id %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                        onclick="return confirm('Вы уверены, что хотите удалить сделку {{ deal.deal_number }}?')"
                                                     title="Удалить сделку">
                                                 <i class="bi bi-trash"></i>
                                             </button>
+                                            </form>
                                         {% endif %}
                                     </div>
                                 </td>
@@ -147,31 +150,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Функция удаления сделки
-function deleteDeal(dealId, dealNumber) {
-    if (confirm(`Вы уверены, что хотите удалить сделку "${dealNumber}"? Это действие необратимо!`)) {
-        fetch(`/deals/${dealId}/delete/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(`Сделка ${dealNumber} успешно удалена`);
-                location.reload();
-            } else {
-                alert('Ошибка: ' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Произошла ошибка при удалении сделки');
-        });
-    }
-}
+
 </script>
 {% endblock %}
 

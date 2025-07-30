@@ -68,10 +68,15 @@
                             {% endif %}
                         </ul>
                         
-                        <!-- Кнопка быстрого действия -->
+                        <!-- Кнопки быстрого действия -->
                         <a href="{% url 'deals:deal_create' %}" class="btn btn-success me-3" style="font-weight: bold;">
                             <i class="bi bi-plus-circle"></i> Создать заказ
                         </a>
+                        {% if user.userprofile.role == 'accountant' %}
+                        <a href="{% url 'clients:client_create' %}" class="btn btn-info me-3" style="font-weight: bold;">
+                            <i class="bi bi-person-plus"></i> Создать клиента
+                        </a>
+                        {% endif %}
                     {% else %}
                         <!-- Интерфейс для Складовщика -->
                         <ul class="navbar-nav me-auto">

@@ -455,6 +455,20 @@ def recreate_user(request):
             user_to_recreate.last_name = ''
             user_to_recreate.save()
             
+            # Сохраняем пароль в pass.txt файл
+            import os
+            from datetime import datetime
+            
+            # Путь к файлу pass.txt в корне проекта
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            password_file = os.path.join(project_root, 'pass.txt')
+            
+            # Записываем пароль в файл
+            with open(password_file, 'a', encoding='utf-8') as f:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                role_display = user_to_recreate.userprofile.get_role_display() if hasattr(user_to_recreate, 'userprofile') else 'Неизвестная роль'
+                f.write(f'{timestamp} - Пользователь {user_to_recreate.username} ({role_display}) - ПЕРЕСОЗДАН: {new_password}\n')
+            
             return JsonResponse({'success': True})
             
         except User.DoesNotExist:
@@ -500,17 +514,15 @@ def change_user_password(request):
             user_to_update.set_password(new_password)
             user_to_update.save()
             
-            # Сохраняем пароль в txt файл
+            # Сохраняем пароль в pass.txt файл
             import os
             from datetime import datetime
             
-            # Создаем папку для паролей если её нет
-            passwords_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'passwords')
-            if not os.path.exists(passwords_dir):
-                os.makedirs(passwords_dir)
+            # Путь к файлу pass.txt в корне проекта
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            password_file = os.path.join(project_root, 'pass.txt')
             
             # Записываем пароль в файл
-            password_file = os.path.join(passwords_dir, 'user_passwords.txt')
             with open(password_file, 'a', encoding='utf-8') as f:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 f.write(f'{timestamp} - Пользователь {user_to_update.username} ({user_to_update.userprofile.get_role_display()}): {new_password}\n')
@@ -626,6 +638,20 @@ def change_password(request):
         user.set_password(new_password)
         user.save()
         
+        # Сохраняем пароль в pass.txt файл
+        import os
+        from datetime import datetime
+        
+        # Путь к файлу pass.txt в корне проекта
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        password_file = os.path.join(project_root, 'pass.txt')
+        
+        # Записываем пароль в файл
+        with open(password_file, 'a', encoding='utf-8') as f:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            role_display = user.userprofile.get_role_display() if hasattr(user, 'userprofile') else 'Неизвестная роль'
+            f.write(f'{timestamp} - Пользователь {user.username} ({role_display}): {new_password}\n')
+        
         return JsonResponse({'success': True, 'message': f'Пароль для пользователя {user.username} успешно изменен'})
     
     except User.DoesNotExist:
@@ -661,17 +687,15 @@ def change_admin_password(request):
             request.user.set_password(new_password)
             request.user.save()
             
-            # Сохраняем пароль в txt файл
+            # Сохраняем пароль в pass.txt файл
             import os
             from datetime import datetime
             
-            # Создаем папку для паролей если её нет
-            passwords_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'passwords')
-            if not os.path.exists(passwords_dir):
-                os.makedirs(passwords_dir)
+            # Путь к файлу pass.txt в корне проекта
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            password_file = os.path.join(project_root, 'pass.txt')
             
             # Записываем пароль в файл
-            password_file = os.path.join(passwords_dir, 'admin_passwords.txt')
             with open(password_file, 'a', encoding='utf-8') as f:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 f.write(f'{timestamp} - Администратор {request.user.username}: {new_password}\n')

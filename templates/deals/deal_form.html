@@ -29,9 +29,14 @@
 {% block content %}
 <div class="mb-4">
     <h1><i class="bi bi-cart"></i> {{ title }}</h1>
+    <div class="d-flex gap-2">
     <a href="{% url 'clients:client_list' %}" class="btn btn-outline-primary">
         <i class="bi bi-arrow-left"></i> К списку клиентов
     </a>
+        <a href="{% url 'clients:client_create' %}" class="btn btn-info">
+            <i class="bi bi-person-plus"></i> Создать клиента
+        </a>
+    </div>
 </div>
 
 <div class="row">

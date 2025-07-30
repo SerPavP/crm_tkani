@@ -38,20 +38,14 @@ class FabricColorForm(forms.ModelForm):
     
     class Meta:
         model = FabricColor
-        fields = ['color_name', 'color_hex']
+        fields = ['color_name']
         widgets = {
             'color_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Название цвета (например, желтый)'
             }),
-            'color_hex': forms.TextInput(attrs={
-                'class': 'form-control',
-                'type': 'color',
-                'value': '#000000'
-            }),
         }
         labels = {
             'color_name': 'Название цвета',
-            'color_hex': 'Цвет (для отображения)',
         }
 

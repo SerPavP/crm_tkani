@@ -48,6 +48,23 @@
             </div>
         </div>
 
+        <!-- Смена пароля пользователей -->
+        {% if user.userprofile.role == 'admin' %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Смена пароля пользователей</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <a href="{% url 'finances:change_user_password_page' %}" class="btn btn-warning btn-lg" style="padding: 20px;">
+                        <i class="bi bi-people" style="font-size: 2rem;"></i>
+                        <div class="mt-2" style="font-size: 1.2rem; font-weight: 500;">Сменить пароли пользователей</div>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
 
 
         <!-- Системная информация -->
@@ -99,69 +116,7 @@
             </div>
         </div>
 
-        <!-- Смена паролей (только для админа) -->
-        {% if user.userprofile.role == 'admin' %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Управление паролями</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <a href="{% url 'finances:change_user_password_page' %}" class="btn btn-warning btn-lg w-100" style="padding: 20px;">
-                            <i class="bi bi-people" style="font-size: 2rem;"></i>
-                            <div class="mt-2" style="font-size: 1.2rem; font-weight: 500;">Сменить пароли пользователей</div>
-                        </a>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <a href="{% url 'finances:change_admin_password_page' %}" class="btn btn-danger btn-lg w-100" style="padding: 20px;">
-                            <i class="bi bi-shield-lock" style="font-size: 2rem;"></i>
-                            <div class="mt-2" style="font-size: 1.2rem; font-weight: 500;">Сменить пароль администратора</div>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
 
-        <div class="card mt-3">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-gear"></i> Другие настройки</h6>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="{% url 'finances:set_fabric_cost_price' %}" class="btn btn-outline-info btn-sm">
-                        <i class="bi bi-currency-exchange"></i> Себестоимость тканей
-                    </a>
-                    {% if user.userprofile.role == 'admin' %}
-                        <button type="button" class="btn btn-outline-success btn-sm" onclick="exportData()">
-                            <i class="bi bi-download"></i> Экспортировать данные
-                        </button>
-                        <button type="button" class="btn btn-outline-info btn-sm" onclick="importData()">
-                            <i class="bi bi-upload"></i> Импортировать данные
-                        </button>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        {% if user.userprofile.role == 'admin' %}
-        <div class="card mt-3">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-shield-exclamation"></i> Административные действия</h6>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <button type="button" class="btn btn-outline-warning btn-sm" onclick="cleanupData()">
-                        <i class="bi bi-trash"></i> Очистка данных
-                    </button>
-                    <button type="button" class="btn btn-outline-info btn-sm" onclick="backupData()">
-                        <i class="bi bi-download"></i> Резервная копия
-                    </button>
-                </div>
-            </div>
-        </div>
-        {% endif %}
         
 
     </div>
@@ -170,37 +125,5 @@
 
 {% endblock %}
 
-{% block extra_js %}
-{% if user.userprofile.role == 'admin' %}
-<script>
 
-
-
-
-function exportData() {
-    if (confirm('Экспортировать все данные CRM в файл Excel?')) {
-        alert('Функция экспорта данных будет реализована позже');
-        // Здесь будет запрос на экспорт данных
-    }
-}
-
-function importData() {
-    if (confirm('Импортировать данные в CRM? Это может перезаписать существующие данные!')) {
-        alert('Функция импорта данных будет реализована позже');
-        // Здесь будет открытие модального окна для выбора файла
-    }
-}
-
-function cleanupData() {
-    if (confirm('Вы уверены, что хотите выполнить очистку данных? Это действие необратимо!')) {
-        alert('Функция очистки данных будет реализована позже');
-    }
-}
-
-function backupData() {
-    alert('Функция создания резервной копии будет реализована позже');
-}
-</script>
-{% endif %}
-{% endblock %}
 

@@ -515,12 +515,12 @@ def get_fabric_colors_api(request):
         return JsonResponse({'colors': []})
     
     try:
-        colors = FabricColor.objects.filter(fabric_id=fabric_id).values('id', 'color_name', 'color_number')
+        colors = FabricColor.objects.filter(fabric_id=fabric_id).values('id', 'color_name')
         colors_list = [
             {
                 'id': color['id'],
                 'name': color['color_name'],
-                'number': color['color_number']
+                'number': ''
             }
             for color in colors
         ]

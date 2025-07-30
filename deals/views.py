@@ -18,7 +18,9 @@ from reportlab.lib import colors
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 from decimal import Decimal
-import datetime
+from datetime import datetime
+import re
+import urllib.parse
 
 
 def format_price_for_display(value):
@@ -206,9 +208,14 @@ def deal_edit(request, deal_id):
 @login_required
 @require_POST
 def deal_delete(request, deal_id):
-    """Удаление сделки (только для админа)"""
-    if request.user.userprofile.role != 'admin':
-        return JsonResponse({'error': 'Нет прав доступа'}, status=403)
+    """Удаление сделки (для админа и бухгалтера)"""
+    # Проверяем права - только админ и бухгалтер могут удалять сделки
+    if request.user.userprofile.role not in ['admin', 'accountant']:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Нет прав доступа'}, status=403)
+        else:
+            messages.error(request, 'У вас нет прав для удаления сделок.')
+            return redirect('deals:deal_list')
     
     deal = get_object_or_404(Deal, id=deal_id)
     deal_number = deal.deal_number
@@ -225,7 +232,17 @@ def deal_delete(request, deal_id):
     # Удаляем сделку
     deal.delete()
     
-    return JsonResponse({'success': True, 'message': f'Сделка {deal_number} успешно удалена'})
+    # Возвращаем ответ в зависимости от типа запроса
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': f'Сделка {deal_number} успешно удалена'})
+    else:
+        messages.success(request, f'Сделка {deal_number} успешно удалена.')
+        # Определяем, откуда пришел запрос
+        referer = request.META.get('HTTP_REFERER', '')
+        if 'core' in referer:
+            return redirect('core:home')
+        else:
+            return redirect('deals:deal_list')
 
 
 @login_required
@@ -449,10 +466,10 @@ def get_fabric_colors(request):
             colors_data.append({
                 'id': color.id,
                 'name': color.color_name,
-                'number': color.color_number,
-                'hex': color.color_hex,
+                'number': '',
                 'price_per_meter': float(price),
                 'cost_price': float(color.fabric.cost_price or 0),
+                'selling_price': float(color.fabric.selling_price or color.fabric.cost_price or 0),
                 'active_rolls_count': color.active_rolls_count, # Добавляем количество рулонов
             })
         
@@ -499,10 +516,42 @@ def get_fabric_color_details(request):
 @login_required
 def export_deal_pdf(request, deal_id):
     deal = get_object_or_404(Deal, id=deal_id)
+    
+    # Автоматически меняем статус на "Ожидание оплаты" если статус "Создан"
+    if deal.status == 'created':
+        deal.status = 'pending_payment'
+        deal.save()
+        
+        # Логирование изменения статуса
+        ActivityLog.objects.create(
+            user=request.user,
+            action='update',
+            object_type='Deal',
+            object_id=deal.id,
+            description=f'Статус сделки {deal.deal_number} изменен на "Ожидание оплаты" при экспорте PDF'
+        )
+    
     deal_items = deal.dealitem_set.all()
 
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = f"inline; filename=\"deal_{deal.deal_number}.pdf\""
+    
+    # Создаем безопасное имя файла с именем клиента
+    
+    # Очищаем имя клиента от недопустимых символов
+    safe_client_name = re.sub(r'[^\w\s\-а-яёА-ЯЁ]', '', deal.client.nickname).strip()
+    safe_client_name = re.sub(r'[-\s]+', '_', safe_client_name)
+    
+    # Если имя пустое, используем номер сделки
+    if not safe_client_name:
+        safe_client_name = f"deal_{deal.deal_number}"
+    
+    filename = f"{safe_client_name}.pdf"
+    
+    # URL-кодируем имя файла для корректной работы в браузерах
+    encoded_filename = urllib.parse.quote(filename.encode('utf-8'))
+    
+    # Устанавливаем заголовки для корректного отображения русских символов
+    response["Content-Disposition"] = f"inline; filename*=UTF-8''{encoded_filename}"
 
     # Используем A4 размер для лучшего отображения
     from reportlab.lib.pagesizes import A4
@@ -578,8 +627,7 @@ def export_deal_pdf(request, deal_id):
     # Информация о сделке и клиенте
     story.append(Paragraph(f"<b>Клиент:</b> {deal.client.nickname}", normal_style))
     story.append(Paragraph(f"<b>Телефон:</b> {deal.client.phone}", normal_style))
-    story.append(Paragraph(f"<b>Статус:</b> {deal.get_status_display()}", normal_style))
-    story.append(Paragraph(f"<b>Дата создания:</b> {deal.created_at.strftime('%d.%m.%Y %H:%M')}", normal_style))
+    story.append(Paragraph(f"<b>Дата создания PDF:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}", normal_style))
     story.append(Spacer(1, 0.3 * inch))
 
     # Создаем данные для таблицы с поддержкой переноса текста
@@ -594,7 +642,7 @@ def export_deal_pdf(request, deal_id):
         # Создаем параграфы для текста с автоматическим переносом
         # Убираем ограничение длины - текст будет переноситься автоматически
         fabric_para = Paragraph(item.fabric_color.fabric.name, normal_style)
-        color_para = Paragraph(f"{item.fabric_color.color_name} (№{item.fabric_color.color_number})", normal_style)
+        color_para = Paragraph(f"{item.fabric_color.color_name}", normal_style)
         
         row = [
             str(i),
@@ -665,6 +713,21 @@ def export_deal_pdf(request, deal_id):
 @login_required
 def export_deal_excel(request, deal_id):
     deal = get_object_or_404(Deal, id=deal_id)
+    
+    # Автоматически меняем статус на "Ожидание оплаты" если статус "Создан"
+    if deal.status == 'created':
+        deal.status = 'pending_payment'
+        deal.save()
+        
+        # Логирование изменения статуса
+        ActivityLog.objects.create(
+            user=request.user,
+            action='update',
+            object_type='Deal',
+            object_id=deal.id,
+            description=f'Статус сделки {deal.deal_number} изменен на "Ожидание оплаты" при экспорте Excel'
+        )
+    
     deal_items = deal.dealitem_set.all()
 
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -689,7 +752,7 @@ def export_deal_excel(request, deal_id):
         ws.append([
             i,
             item.fabric_color.fabric.name,
-            f"{item.fabric_color.color_name} (№{item.fabric_color.color_number})",
+            f"{item.fabric_color.color_name}",
             item.width_meters,
             float(item.price_per_meter),
             float(item.total_price)
@@ -730,6 +793,21 @@ def export_deal_excel(request, deal_id):
 @login_required
 def print_deal_warehouse(request, deal_id):
     deal = get_object_or_404(Deal, id=deal_id)
+    
+    # Автоматически меняем статус на "Ожидание оплаты" если статус "Создан"
+    if deal.status == 'created':
+        deal.status = 'pending_payment'
+        deal.save()
+        
+        # Логирование изменения статуса
+        ActivityLog.objects.create(
+            user=request.user,
+            action='update',
+            object_type='Deal',
+            object_id=deal.id,
+            description=f'Статус сделки {deal.deal_number} изменен на "Ожидание оплаты" при печати на склад'
+        )
+    
     deal_items = deal.dealitem_set.all()
 
     response = HttpResponse(content_type="application/pdf")
@@ -787,7 +865,7 @@ def print_deal_warehouse(request, deal_id):
         data.append([
             str(i),
             item.fabric_color.fabric.name,
-            f"{item.fabric_color.color_name} (№{item.fabric_color.color_number})",
+            f"{item.fabric_color.color_name}",
             str(item.width_meters)
         ])
 

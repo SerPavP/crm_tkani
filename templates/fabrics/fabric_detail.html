@@ -103,12 +103,9 @@
                             <tr>
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <div class="color-cube me-2" 
-                                             style="width: 30px; height: 30px; background-color: {{ color.color_hex }}; border: 1px solid #ccc; border-radius: 5px;">
-                                        </div>
                                         <div>
                                             <strong>{{ color.color_name }}</strong>
-                                            <div class="small text-muted">№{{ color.color_number }}</div>
+                                            <div class="small text-muted"></div>
                                         </div>
                                     </div>
                                 </td>
@@ -158,7 +155,7 @@
                                         <button class="btn btn-sm btn-outline-danger" 
                                                 data-color-id="{{ color.id }}"
                                                 data-color-name="{{ color.color_name|escapejs }}"
-                                                data-color-number="{{ color.color_number }}"
+                                                data-color-number=""
                                                 data-rolls-count="{{ color.active_rolls_simple|length }}"
                                                 onclick="confirmDeleteColor(this)">
                                             <i class="bi bi-trash"></i> Удалить

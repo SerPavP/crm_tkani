@@ -76,11 +76,11 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-cart"></i> Сделка {{ deal.deal_number }}</h1>
-    <div>
+    <div class="d-flex gap-2">
         <a href="{% url 'deals:deal_edit' deal.id %}" class="btn btn-outline-secondary">
             <i class="bi bi-pencil"></i> Редактировать
         </a>
-        <a href="{% url 'deals:export_deal_pdf' deal.id %}" class="btn btn-outline-danger">
+        <a href="{% url 'deals:export_deal_pdf' deal.id %}" class="btn btn-outline-danger" target="_blank">
             <i class="bi bi-file-earmark-pdf"></i> Экспорт в PDF
         </a>
         <a href="{% url 'deals:export_deal_excel' deal.id %}" class="btn btn-outline-success">
@@ -89,6 +89,15 @@
         <a href="{% url 'deals:print_deal_warehouse' deal.id %}" class="btn btn-outline-info" target="_blank">
             <i class="bi bi-printer"></i> Печать на склад
         </a>
+        {% if user.userprofile.role == 'admin' or user.userprofile.role == 'accountant' %}
+            <form method="post" action="{% url 'deals:deal_delete' deal.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger"
+                        onclick="return confirm('Вы уверены, что хотите удалить сделку {{ deal.deal_number }}?')">
+                    <i class="bi bi-trash"></i> Удалить сделку
+                </button>
+            </form>
+        {% endif %}
         <a href="{% url 'deals:deal_list' %}" class="btn btn-outline-primary">
             <i class="bi bi-arrow-left"></i> К списку
         </a>
@@ -271,16 +280,13 @@
                                             <div class="editable-cell" data-field="fabric_color">
                                                 <div class="display-value">
                                                     <div class="d-flex align-items-center">
-                                                        <div class="color-preview me-2" 
-                                                             style="width: 20px; height: 20px; background-color: {{ item.fabric_color.color_hex }}; border: 1px solid #ddd; border-radius: 3px;">
-                                                        </div>
-                                                        {{ item.fabric_color.color_name }} (№{{ item.fabric_color.color_number }})
+                                                        {{ item.fabric_color.color_name }}
                                                     </div>
                                                 </div>
                                                 <select class="form-control form-control-sm edit-input color-select" 
                                                         style="display: none;" disabled>
                                                     <option value="{{ item.fabric_color.id }}" selected>
-                                                        {{ item.fabric_color.color_name }} (№{{ item.fabric_color.color_number }})
+                                                        {{ item.fabric_color.color_name }}
                                                     </option>
                                                 </select>
                                             </div>
@@ -306,7 +312,7 @@
                                             </div>
                                             {% elif user.userprofile.role == 'accountant' %}
                                             <div class="small text-muted">
-                                                {{ item.price_per_meter|format_price }} ₸
+                                                {{ item.fabric_color.fabric.selling_price|format_price }} ₸
                                             </div>
                                             {% endif %}
                                         </td>
@@ -410,7 +416,13 @@
                                step="0.01" min="0.01" required placeholder="0.00">
                         {% if user.userprofile.can_view_finances %}
                         <div class="form-text">
-                            <small class="text-muted">Себестоимость: <span id="cost_price_display">Будет показана после выбора цвета</span></small>
+                            <small class="text-muted">
+                                {% if user.userprofile.role == 'accountant' %}
+                                    Цена: <span id="cost_price_display">Будет показана после выбора цвета</span>
+                                {% else %}
+                                    Себестоимость: <span id="cost_price_display">Будет показана после выбора цвета</span>
+                                {% endif %}
+                            </small>
                         </div>
                         {% endif %}
                     </div>
@@ -434,6 +446,9 @@
 </div>
 
 <script>
+// Передаем роль пользователя в JavaScript
+const userRole = '{{ user.userprofile.role }}';
+
 document.addEventListener('DOMContentLoaded', function() {
     // Добавляем стили для невалидных полей и улучшения таблицы
     document.head.insertAdjacentHTML('beforeend', `
@@ -557,8 +572,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 option.value = color.id;
                                 option.textContent = `${color.name} (№${color.number})`;
                                 option.dataset.price = color.price_per_meter;
-                                option.dataset.hex = color.hex;
                                 option.dataset.costPrice = color.cost_price;
+                                option.dataset.sellingPrice = color.selling_price;
                                 option.dataset.rollsCount = color.active_rolls_count; // Add rolls count
                                 fabricColorSelect.appendChild(option);
                             });
@@ -589,17 +604,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateTotal();
             }
             
-            // Показываем себестоимость если есть права на финансы
+            // Показываем себестоимость/цену если есть права на финансы
             {% if user.userprofile.can_view_finances %}
-            if (selectedOption.dataset.costPrice) {
-                const costPrice = selectedOption.dataset.costPrice.replace(',', '.');
-                const costPriceText = parseFloat(costPrice).toLocaleString('ru-RU', {
+            if (selectedOption.dataset.costPrice || selectedOption.dataset.sellingPrice) {
+                let priceToShow, label;
+                
+                if (userRole === 'accountant') {
+                    // Для бухгалтера показываем продажную цену
+                    priceToShow = selectedOption.dataset.sellingPrice || selectedOption.dataset.costPrice;
+                    label = 'Цена:';
+                } else {
+                    // Для остальных показываем себестоимость
+                    priceToShow = selectedOption.dataset.costPrice;
+                    label = 'Себестоимость:';
+                }
+                
+                const priceText = parseFloat(priceToShow.replace(',', '.')).toLocaleString('ru-RU', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 });
+                
                 const formText = priceInput.parentNode.querySelector('.form-text');
                 if (formText) {
-                    formText.innerHTML = `<small class="text-muted">Себестоимость: ${costPriceText} ₸</small>`;
+                    formText.innerHTML = `<small class="text-muted">${label} ${priceText} ₸</small>`;
                 }
             }
             {% endif %}
@@ -651,17 +678,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (response.ok) {
                         return response.json();
                     } else {
-                        return response.text().then(html => {
-                            // Если получили HTML, значит есть ошибки
-                            const parser = new DOMParser();
-                            const doc = parser.parseFromString(html, 'text/html');
-                            const errorMessages = doc.querySelectorAll('.alert-danger, .errorlist');
-                            
-                            if (errorMessages.length > 0) {
-                                throw new Error('Ошибка добавления позиции: ' + errorMessages[0].textContent);
+                        // Сначала пытаемся получить JSON ответ
+                        return response.json().then(data => {
+                            if (data.error) {
+                                throw new Error(data.error);
                             } else {
                                 throw new Error('Ошибка добавления позиции');
                             }
+                        }).catch(() => {
+                            // Если не получилось получить JSON, пробуем HTML
+                            return response.text().then(html => {
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(html, 'text/html');
+                                const errorMessages = doc.querySelectorAll('.alert-danger, .errorlist');
+                                
+                                if (errorMessages.length > 0) {
+                                    throw new Error('Ошибка добавления позиции: ' + errorMessages[0].textContent);
+                                } else {
+                                    throw new Error('Ошибка добавления позиции');
+                                }
+                            });
                         });
                     }
                 })
@@ -678,7 +714,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(error => {
                     console.error('Ошибка отправки формы:', error);
-                    alert('Ошибка добавления позиции');
+                    alert(error.message || 'Ошибка добавления позиции');
                 });
             });
         }
@@ -799,8 +835,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             option.value = color.id;
                             option.textContent = `${color.name} (№${color.number})`;
                             option.dataset.price = color.price_per_meter;
-                            option.dataset.hex = color.hex;
                             option.dataset.costPrice = color.cost_price;
+                            option.dataset.sellingPrice = color.selling_price;
                             colorSelect.appendChild(option);
                         });
                         
@@ -947,15 +983,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Обновляем отображение цвета
                     const selectedColor = colorSelect.options[colorSelect.selectedIndex];
-                    const colorHex = selectedColor.dataset.hex || '#cccccc';
-                    colorDisplay.innerHTML = `
-                        <div class="d-flex align-items-center">
-                            <div class="color-preview me-2" 
-                                 style="width: 20px; height: 20px; background-color: ${colorHex}; border: 1px solid #ddd; border-radius: 3px;">
-                            </div>
-                            ${selectedColor.textContent}
-                        </div>
-                    `;
+                    colorDisplay.textContent = selectedColor.textContent;
                     
                     // Обновляем количество и цену
                     widthDisplay.textContent = widthInput.value;

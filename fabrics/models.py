@@ -107,7 +107,8 @@ class FabricColor(models.Model):
     color_hex = models.CharField(
         max_length=7, 
         verbose_name="HEX код цвета",
-        help_text="Цвет для визуального отображения (например, #FF0000)"
+        help_text="Цвет для визуального отображения (например, #FF0000)",
+        default="#CCCCCC"
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     

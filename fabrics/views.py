@@ -23,6 +23,16 @@ def fabric_list(request):
     
     # Сортируем: сначала ткани с рулонами, потом по коду цвета
     
+    def safe_fabric_sort_key(fabric):
+        """Безопасная функция для сортировки тканей по номеру цвета"""
+        try:
+            first_color = fabric.fabriccolor_set.first()
+            if first_color and first_color.color_number and first_color.color_number.strip():
+                return int(first_color.color_number)
+            return 9999
+        except (ValueError, TypeError, AttributeError):
+            return 9999
+    
     fabrics_with_rolls = []
     fabrics_without_rolls = []
     
@@ -38,8 +48,8 @@ def fabric_list(request):
             fabrics_without_rolls.append(fabric)
     
     # Сортируем каждую группу по коду цвета
-    fabrics_with_rolls.sort(key=lambda x: int(x.fabriccolor_set.first().color_number) if x.fabriccolor_set.exists() and x.fabriccolor_set.first().color_number.isdigit() else 9999)
-    fabrics_without_rolls.sort(key=lambda x: int(x.fabriccolor_set.first().color_number) if x.fabriccolor_set.exists() and x.fabriccolor_set.first().color_number.isdigit() else 9999)
+    fabrics_with_rolls.sort(key=safe_fabric_sort_key)
+    fabrics_without_rolls.sort(key=safe_fabric_sort_key)
     
     # Объединяем списки
     sorted_fabrics = fabrics_with_rolls + fabrics_without_rolls
@@ -58,6 +68,15 @@ def fabric_detail(request, fabric_id):
     
     # Сортируем цвета: сначала с рулонами, потом по номеру цвета
     
+    def safe_color_sort_key(color):
+        """Безопасная функция для сортировки цветов по номеру"""
+        try:
+            if color.color_number and color.color_number.strip():
+                return int(color.color_number)
+            return 9999
+        except (ValueError, TypeError):
+            return 9999
+    
     colors_with_rolls = []
     colors_without_rolls = []
     
@@ -73,8 +92,8 @@ def fabric_detail(request, fabric_id):
             colors_without_rolls.append(color)
     
     # Сортируем каждую группу по номеру цвета
-    colors_with_rolls.sort(key=lambda x: int(x.color_number) if x.color_number.isdigit() else 9999)
-    colors_without_rolls.sort(key=lambda x: int(x.color_number) if x.color_number.isdigit() else 9999)
+    colors_with_rolls.sort(key=safe_color_sort_key)
+    colors_without_rolls.sort(key=safe_color_sort_key)
     
     # Объединяем списки
     sorted_colors = colors_with_rolls + colors_without_rolls
@@ -89,9 +108,7 @@ def fabric_detail(request, fabric_id):
 @login_required
 def fabric_create(request):
     """Создание новой ткани"""
-    if not request.user.userprofile.can_manage_fabrics:
-        messages.error(request, 'У вас нет прав для создания тканей.')
-        return redirect('fabrics:fabric_list')
+    # Любой пользователь может создавать ткани
     
     if request.method == 'POST':
         form = FabricForm(request.POST)
@@ -118,9 +135,7 @@ def fabric_create(request):
 @login_required
 def fabric_edit(request, fabric_id):
     """Редактирование ткани"""
-    if not request.user.userprofile.can_manage_fabrics:
-        messages.error(request, 'У вас нет прав для редактирования тканей.')
-        return redirect('fabrics:fabric_list')
+    # Любой пользователь может редактировать ткани
     
     fabric = get_object_or_404(Fabric, id=fabric_id)
     
@@ -149,9 +164,7 @@ def fabric_edit(request, fabric_id):
 @login_required
 def color_create(request, fabric_id):
     """Создание нового цвета для ткани"""
-    if not request.user.userprofile.can_manage_fabrics:
-        messages.error(request, 'У вас нет прав для создания цветов.')
-        return redirect('fabrics:fabric_list')
+    # Любой пользователь может создавать цвета тканей
     
     fabric = get_object_or_404(Fabric, id=fabric_id)
     
@@ -187,9 +200,7 @@ def color_create(request, fabric_id):
 @login_required
 def color_edit(request, color_id):
     """Редактирование цвета ткани"""
-    if not request.user.userprofile.can_manage_fabrics:
-        messages.error(request, 'У вас нет прав для редактирования цветов.')
-        return redirect('fabrics:fabric_list')
+    # Любой пользователь может редактировать цвета тканей
     
     color = get_object_or_404(FabricColor, id=color_id)
     
@@ -224,7 +235,7 @@ def color_edit(request, color_id):
 def get_fabric_colors(request, fabric_id):
     """API для получения цветов ткани (для AJAX)"""
     fabric = get_object_or_404(Fabric, id=fabric_id)
-    colors = fabric.fabriccolor_set.all().values('id', 'color_name', 'color_number', 'price_per_meter')
+    colors = fabric.fabriccolor_set.all().values('id', 'color_name', 'price_per_meter')
     return JsonResponse({'colors': list(colors)})
 
 
@@ -232,7 +243,7 @@ def get_fabric_colors(request, fabric_id):
 @login_required
 def get_colors_by_fabric(request):
     fabric_id = request.GET.get("fabric_id")
-    colors = FabricColor.objects.filter(fabric_id=fabric_id).values("id", "color_name", "color_number")
+    colors = FabricColor.objects.filter(fabric_id=fabric_id).values("id", "color_name")
     return JsonResponse(list(colors), safe=False)
 
 
@@ -240,9 +251,7 @@ def get_colors_by_fabric(request):
 @require_POST
 def fabric_delete(request, fabric_id):
     """Удаление ткани"""
-    if not request.user.userprofile.can_manage_fabrics:
-        messages.error(request, 'У вас нет прав для удаления тканей.')
-        return redirect('fabrics:fabric_list')
+    # Любой пользователь может удалять ткани
     
     fabric = get_object_or_404(Fabric, id=fabric_id)
     fabric_name = fabric.name
@@ -279,9 +288,7 @@ def fabric_delete(request, fabric_id):
 @require_POST
 def color_delete(request, color_id):
     """Удаление цвета ткани"""
-    if not request.user.userprofile.can_manage_fabrics:
-        messages.error(request, 'У вас нет прав для удаления цветов.')
-        return redirect('fabrics:fabric_list')
+    # Любой пользователь может удалять цвета тканей
     
     color = get_object_or_404(FabricColor, id=color_id)
     fabric = color.fabric

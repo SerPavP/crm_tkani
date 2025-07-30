@@ -189,7 +189,7 @@
     <!-- Боковая панель -->
     <div class="col-md-4">
         {% if user.userprofile.role == 'admin' %}
-        <!-- Быстрые действия -->
+        <!-- Быстрые действия для администратора -->
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0"><i class="bi bi-lightning"></i> Быстрые действия</h5>
@@ -223,7 +223,7 @@
                 </div>
             </div>
         </div>
-        <!-- Быстрая статистика -->
+        <!-- Быстрая статистика для администратора -->
         <div class="card mt-3" id="statistics-card">
             <div class="card-header">
                 <h6 class="mb-0"><i class="bi bi-graph-up"></i> Быстрая статистика</h6>
@@ -261,7 +261,30 @@
                 </div>
             </div>
         </div>
-        {% endif %} {# End of user.userprofile.role == 'admin' for sidebar #}
+        {% elif user.userprofile.role == 'accountant' %}
+        <!-- Быстрые действия для бухгалтера -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Быстрые действия</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'deals:deal_create' %}" class="btn btn-success btn-action">
+                        <i class="bi bi-plus-circle"></i> Создать сделку
+                    </a>
+                    <a href="{% url 'clients:client_create' %}" class="btn btn-info btn-action">
+                        <i class="bi bi-person-plus"></i> Добавить клиента
+                    </a>
+                    <a href="{% url 'fabrics:fabric_create' %}" class="btn btn-secondary btn-action">
+                        <i class="bi bi-palette"></i> Добавить ткань
+                    </a>
+                    <a href="{% url 'warehouse:create_barcode' %}" class="btn btn-warning btn-action">
+                        <i class="bi bi-upc"></i> Создать рулон
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %} {# End of user.userprofile.role == 'admin' or 'accountant' for sidebar #}
     </div>
 </div>
 

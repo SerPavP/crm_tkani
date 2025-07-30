@@ -65,7 +65,6 @@ class Command(BaseCommand):
                 FabricColor.objects.create(
                     fabric=fabric,
                     color_name=fake.color_name(),
-                    color_hex=fake.hex_color(),
                     color_number=fake.unique.random_int(min=100, max=999)
                 )
             self.stdout.write(f'  Created fabric: {fabric.name} with colors')

@@ -95,14 +95,11 @@
                                      data-fabric-name="{{ fabric.name }}"
                                      data-color-id="{{ color.id }}" 
                                      data-color-name="{{ color.color_name }}"
-                                     data-color-number="{{ color.color_number }}"
+                                     data-color-number=""
                                      onclick="selectFabricColor(this)"
                                      onmouseover="this.style.backgroundColor='#f8f9fa'" 
                                      onmouseout="this.style.backgroundColor='transparent'">
-                                    <div class="color-preview me-2" 
-                                         style="width: 16px; height: 16px; background-color: {{ color.color_hex }}; border: 1px solid #ddd; border-radius: 2px;">
-                                    </div>
-                                    <small>{{ color.color_name }} (№{{ color.color_number }})</small>
+                                    <small>{{ color.color_name }}</small>
                                 </div>
                             {% endfor %}
                         </div>
@@ -160,7 +157,7 @@ function loadColors(fabricId, selectedColorId = null) {
                     data.colors.forEach(color => {
                         const option = document.createElement('option');
                         option.value = color.id;
-                        option.textContent = `${color.name} (№${color.number})`;
+                        option.textContent = `${color.name}`;
                     if (selectedColorId && color.id == selectedColorId) {
                         option.selected = true;
                         fabricColorHidden.value = color.id;

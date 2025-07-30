@@ -38,7 +38,7 @@ class CreateBarcodeForm(forms.ModelForm):
                     choices.append(('', '---'))
                 current_fabric = color.fabric.name
 
-            choice_label = f"{color.fabric.name} - {color.color_name} (№{color.color_number})"
+            choice_label = f"{color.fabric.name} - {color.color_name}"
             choices.append((color.id, choice_label))
 
         self.fields['fabric_color'].choices = choices
