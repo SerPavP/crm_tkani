@@ -13,9 +13,9 @@
 <!-- Поиск -->
 <div class="row mb-4">
     <div class="col-md-6">
-        <form method="get" class="d-flex">
-            <input type="text" name="search" class="form-control" 
-                   placeholder="Поиск по имени, телефону или описанию..." 
+        <form method="get" class="d-flex" id="searchForm">
+            <input type="text" name="search" class="form-control" id="searchInput"
+                   placeholder="Поиск по имени, ФИО, телефону или примечаниям..." 
                    value="{{ search_query }}">
             <button type="submit" class="btn btn-outline-secondary ms-2">
                 <i class="bi bi-search"></i>
@@ -26,6 +26,13 @@
                 </a>
             {% endif %}
         </form>
+    </div>
+    <div class="col-md-6">
+        <div class="d-flex justify-content-end">
+            <span class="text-muted" id="resultsCount">
+                Найдено клиентов: {{ clients.count }}
+            </span>
+        </div>
     </div>
 </div>
 
@@ -50,8 +57,11 @@
                                 <td>
                                     <div>
                                         <strong>{{ client.nickname }}</strong>
-                                        {% if client.description %}
-                                            <div class="small text-muted">{{ client.description|truncatechars:50 }}</div>
+                                        {% if client.full_name %}
+                                            <div class="small text-muted">{{ client.full_name }}</div>
+                                        {% endif %}
+                                        {% if client.notes %}
+                                            <div class="small text-muted">{{ client.notes|truncatechars:50 }}</div>
                                         {% endif %}
                                     </div>
                                 </td>
@@ -139,6 +149,49 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = this.getAttribute('data-href');
         });
     });
+    
+    // Динамический поиск
+    const searchInput = document.getElementById('searchInput');
+    const searchForm = document.getElementById('searchForm');
+    const resultsCount = document.getElementById('resultsCount');
+    let searchTimeout;
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            
+            // Показываем индикатор загрузки
+            if (resultsCount) {
+                resultsCount.innerHTML = '<i class="bi bi-hourglass-split"></i> Поиск...';
+            }
+            
+            // Задержка перед отправкой запроса
+            searchTimeout = setTimeout(() => {
+                if (query.length >= 1 || query.length === 0) {
+                    // Обновляем URL и перезагружаем страницу
+                    const url = new URL(window.location);
+                    if (query) {
+                        url.searchParams.set('search', query);
+                    } else {
+                        url.searchParams.delete('search');
+                    }
+                    window.location.href = url.toString();
+                }
+            }, 500); // Задержка 500мс
+        });
+        
+        // Предотвращаем отправку формы при нажатии Enter
+        searchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const query = searchInput.value.trim();
+            if (query) {
+                const url = new URL(window.location);
+                url.searchParams.set('search', query);
+                window.location.href = url.toString();
+            }
+        });
+    }
 });
 
 // Функция удаления клиента

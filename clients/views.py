@@ -14,21 +14,75 @@ from core.models import ActivityLog
 @login_required
 def client_list(request):
     """Список всех клиентов"""
-    search_query = request.GET.get('search', '')
-    
-    clients = Client.objects.all()
-    if search_query:
-        clients = clients.filter(
-            Q(nickname__icontains=search_query) |
-            Q(phone__icontains=search_query) |
-            Q(description__icontains=search_query)
-        )
-    
-    context = {
-        'clients': clients,
-        'search_query': search_query,
-    }
-    return render(request, 'clients/client_list.html', context)
+    try:
+        search_query = request.GET.get('search', '')
+        
+        clients = Client.objects.all().order_by('-created_at')
+        if search_query:
+            clients = clients.filter(
+                Q(nickname__icontains=search_query) |
+                Q(full_name__icontains=search_query) |
+                Q(phone__icontains=search_query) |
+                Q(notes__icontains=search_query)
+            )
+        
+        context = {
+            'clients': clients,
+            'search_query': search_query,
+        }
+        return render(request, 'clients/client_list.html', context)
+    except Exception as e:
+        print(f"Ошибка в client_list: {e}")
+        messages.error(request, f'Произошла ошибка при загрузке списка клиентов: {str(e)}')
+        return render(request, 'clients/client_list.html', {'clients': [], 'search_query': search_query})
+
+
+@login_required
+def client_search_ajax(request):
+    """AJAX endpoint для поиска клиентов"""
+    try:
+        search_query = request.GET.get('search', '')
+        
+        clients = Client.objects.all().order_by('-created_at')
+        if search_query:
+            clients = clients.filter(
+                Q(nickname__icontains=search_query) |
+                Q(full_name__icontains=search_query) |
+                Q(phone__icontains=search_query) |
+                Q(notes__icontains=search_query)
+            )
+        
+        # Подготавливаем данные для JSON ответа
+        clients_data = []
+        for client in clients:
+            last_deal = client.deal_set.first()
+            clients_data.append({
+                'id': client.id,
+                'nickname': client.nickname,
+                'full_name': client.full_name or '',
+                'phone': client.phone or 'Не указан',
+                'notes': client.notes or '',
+                'deals_count': client.deal_set.count(),
+                'last_deal_number': last_deal.deal_number if last_deal else None,
+                'last_deal_id': last_deal.id if last_deal else None,
+                'created_at': client.created_at.strftime('%d.%m.%Y') if client.created_at else '',
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'clients': clients_data,
+            'count': len(clients_data),
+            'query': search_query
+        })
+        
+    except Exception as e:
+        print(f"Ошибка в client_search_ajax: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'clients': [],
+            'count': 0
+        })
 
 
 @login_required

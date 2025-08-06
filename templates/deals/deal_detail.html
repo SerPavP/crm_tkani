@@ -330,6 +330,15 @@
                                                     data-item-id="{{ item.id }}" title="Отмена" style="display: none;">
                                                 <i class="bi bi-x"></i>
                                             </button>
+                                            <button class="btn btn-sm btn-outline-info repeat-item-btn" 
+                                                    data-item-id="{{ item.id }}" 
+                                                    data-fabric-id="{{ item.fabric_color.fabric.id }}"
+                                                    data-fabric-name="{{ item.fabric_color.fabric.name }}"
+                                                    data-color-id="{{ item.fabric_color.id }}"
+                                                    data-color-name="{{ item.fabric_color.color_name }}"
+                                                    title="Повтор">
+                                                <i class="bi bi-arrow-repeat"></i>
+                                            </button>
                                             <form method="post" action="{% url 'deals:remove_deal_item' deal.id item.id %}" class="d-inline">
                                                 {% csrf_token %}
                                                 <button type="submit" class="btn btn-sm btn-outline-danger"
@@ -538,6 +547,76 @@ document.addEventListener('DOMContentLoaded', function() {
     const totalPreview = document.getElementById('total_preview');
     const rollsCountDisplay = document.getElementById('rolls_count_display');
     const activeRollsCountElement = document.getElementById('active_rolls_count');
+
+    // Инициализация модального окна
+    const addItemModal = document.getElementById('addItemModal');
+    const modal = new bootstrap.Modal(addItemModal);
+    
+    // Функция для сброса формы модального окна
+    function resetModalForm() {
+        if (fabricSelect) fabricSelect.value = '';
+        if (fabricColorSelect) {
+            fabricColorSelect.innerHTML = '<option value="">Сначала выберите ткань</option>';
+            fabricColorSelect.disabled = true;
+        }
+        if (priceInput) priceInput.value = '';
+        if (widthInput) widthInput.value = '';
+        if (totalPreview) totalPreview.textContent = '0.00 ₸';
+        if (rollsCountDisplay) rollsCountDisplay.style.display = 'none';
+        if (activeRollsCountElement) activeRollsCountElement.textContent = '0 рулонов';
+        
+        // Сбрасываем информацию о цене
+        const formText = priceInput?.parentNode.querySelector('.form-text');
+        if (formText) {
+            formText.innerHTML = `<small class="text-muted">
+                {% if user.userprofile.role == 'accountant' %}
+                    Цена: <span id="cost_price_display">Будет показана после выбора цвета</span>
+                {% else %}
+                    Себестоимость: <span id="cost_price_display">Будет показана после выбора цвета</span>
+                {% endif %}
+            </small>`;
+        }
+    }
+    
+    // Обработчики закрытия модального окна
+    addItemModal.addEventListener('hidden.bs.modal', function () {
+        console.log('Модальное окно закрыто, сбрасываем форму');
+        resetModalForm();
+    });
+    
+    // Обработчик для закрытия при клике вне модального окна
+    addItemModal.addEventListener('click', function(event) {
+        if (event.target === addItemModal) {
+            console.log('Клик вне модального окна, закрываем');
+            modal.hide();
+        }
+    });
+    
+    // Обработчик для клавиши Escape
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && addItemModal.classList.contains('show')) {
+            console.log('Нажата клавиша Escape, закрываем модальное окно');
+            modal.hide();
+        }
+    });
+    
+    // Обработчик для кнопки закрытия (X)
+    const closeButton = addItemModal.querySelector('.btn-close');
+    if (closeButton) {
+        closeButton.addEventListener('click', function() {
+            console.log('Нажата кнопка закрытия');
+            modal.hide();
+        });
+    }
+    
+    // Обработчик для кнопки "Отмена"
+    const cancelButton = addItemModal.querySelector('.btn-secondary');
+    if (cancelButton) {
+        cancelButton.addEventListener('click', function() {
+            console.log('Нажата кнопка отмены');
+            modal.hide();
+        });
+    }
 
     if (fabricSelect && fabricColorSelect) {
         // Обработка выбора ткани в модальном окне
@@ -1023,6 +1102,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Инициализируем кнопки отмены
     initializeCancelButtons();
     
+    // Инициализируем кнопки повторения
+    initializeRepeatButtons();
+    
     // Функция для обновления общей суммы сделки
     function updateDealTotal(totalAmount) {
         const dealTotalElement = document.querySelector('.deal-total');
@@ -1104,6 +1186,143 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         updateDealTotal(total);
+    }
+    
+    // Функция для загрузки цветов ткани
+    function loadFabricColors(fabricId) {
+        return new Promise((resolve, reject) => {
+            const fabricColorSelect = document.getElementById('fabric_color');
+            
+            // Очищаем и блокируем выбор цвета
+            fabricColorSelect.innerHTML = '<option value="">Загрузка...</option>';
+            fabricColorSelect.disabled = true;
+            
+            if (fabricId) {
+                // Получаем цвета для выбранной ткани
+                const url = `/deals/api/fabric-colors/?fabric_id=${fabricId}`;
+                console.log('Загружаем цвета по URL:', url);
+                
+                fetch(url)
+                    .then(response => {
+                        console.log('Ответ сервера:', response.status, response.statusText);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Полученные данные:', data);
+                        fabricColorSelect.innerHTML = '<option value="">Выберите цвет</option>';
+                        
+                        if (data.colors && data.colors.length > 0) {
+                            data.colors.forEach(color => {
+                                const option = document.createElement('option');
+                                option.value = color.id;
+                                option.textContent = `${color.name} (№${color.number})`;
+                                option.dataset.price = color.price_per_meter;
+                                option.dataset.costPrice = color.cost_price;
+                                option.dataset.sellingPrice = color.selling_price;
+                                option.dataset.rollsCount = color.active_rolls_count;
+                                fabricColorSelect.appendChild(option);
+                            });
+                            
+                            fabricColorSelect.disabled = false;
+                            console.log('Цвета загружены, select активирован');
+                            resolve();
+                        } else {
+                            fabricColorSelect.innerHTML = '<option value="">Нет доступных цветов</option>';
+                            console.log('Нет цветов для выбранной ткани');
+                            reject('Нет доступных цветов');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Ошибка загрузки цветов:', error);
+                        fabricColorSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+                        reject(error);
+                    });
+            } else {
+                fabricColorSelect.innerHTML = '<option value="">Сначала выберите ткань</option>';
+                reject('Не выбран ID ткани');
+            }
+        });
+    }
+    
+    // Обработка кнопки повторения позиции
+    function initializeRepeatButtons() {
+        console.log('Инициализация кнопок повторения...');
+        const repeatButtons = document.querySelectorAll('.repeat-item-btn');
+        console.log('Найдено кнопок повторения:', repeatButtons.length);
+        
+        repeatButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const fabricId = this.getAttribute('data-fabric-id');
+                const fabricName = this.getAttribute('data-fabric-name');
+                const colorId = this.getAttribute('data-color-id');
+                const colorName = this.getAttribute('data-color-name');
+                
+                console.log('Повтор позиции:', fabricName, colorName);
+                
+                // Заполняем модальное окно данными
+                const fabricSelect = document.getElementById('fabric_select');
+                const colorSelect = document.getElementById('fabric_color');
+                
+                // Устанавливаем ткань
+                fabricSelect.value = fabricId;
+                
+                // Загружаем цвета для выбранной ткани
+                loadFabricColors(fabricId).then(() => {
+                    // Устанавливаем цвет
+                    colorSelect.value = colorId;
+                    
+                    // Получаем цену из выбранного цвета
+                    const selectedOption = colorSelect.options[colorSelect.selectedIndex];
+                    if (selectedOption && selectedOption.dataset.price) {
+                        const price = selectedOption.dataset.price.replace(',', '.');
+                        priceInput.value = price;
+                        updateTotal();
+                        
+                        // Показываем себестоимость/цену если есть права на финансы
+                        {% if user.userprofile.can_view_finances %}
+                        if (selectedOption.dataset.costPrice || selectedOption.dataset.sellingPrice) {
+                            let priceToShow, label;
+                            
+                            if (userRole === 'accountant') {
+                                // Для бухгалтера показываем продажную цену
+                                priceToShow = selectedOption.dataset.sellingPrice || selectedOption.dataset.costPrice;
+                                label = 'Цена:';
+                            } else {
+                                // Для остальных показываем себестоимость
+                                priceToShow = selectedOption.dataset.costPrice;
+                                label = 'Себестоимость:';
+                            }
+                            
+                            const priceText = parseFloat(priceToShow.replace(',', '.')).toLocaleString('ru-RU', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            });
+                            
+                            const formText = priceInput.parentNode.querySelector('.form-text');
+                            if (formText) {
+                                formText.innerHTML = `<small class="text-muted">${label} ${priceText} ₸</small>`;
+                            }
+                        }
+                        {% endif %}
+                        
+                        // Показываем количество рулонов если доступно
+                        if (selectedOption.dataset.rollsCount) {
+                            const rollsCount = selectedOption.dataset.rollsCount;
+                            if (rollsCountDisplay) {
+                                rollsCountDisplay.style.display = 'block';
+                                activeRollsCountElement.textContent = `${rollsCount} рулонов`;
+                            }
+                        }
+                    }
+                    
+                    // Открываем модальное окно
+                    modal.show();
+                });
+            });
+        });
     }
     
     // Обработка изменения статуса сделки
@@ -1264,6 +1483,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeEditButtons();
     initializeSaveButtons();
     initializeCancelButtons();
+    initializeRepeatButtons();
     initializeStatusButtons();
     
     // Дополнительная проверка через небольшую задержку для надежности
@@ -1272,6 +1492,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeEditButtons();
         initializeSaveButtons();
         initializeCancelButtons();
+        initializeRepeatButtons();
         initializeStatusButtons();
     }, 1000);
 });
