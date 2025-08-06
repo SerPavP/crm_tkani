@@ -42,8 +42,17 @@ def home(request):
     
     # Статистика по выбранному периоду
     period_deals = Deal.objects.filter(created_at__date__gte=start_date)
-    period_deals_count = period_deals.count()
-    period_revenue = period_deals.filter(status='paid').aggregate(total=Sum('total_amount'))['total'] or 0
+    
+    # Только оплаченные сделки для всех показателей
+    period_paid_deals = period_deals.filter(status='paid')
+    period_deals_count = period_paid_deals.count()  # Только оплаченные сделки
+    period_revenue = period_paid_deals.aggregate(total=Sum('total_amount'))['total'] or 0
+    
+    # Прибыль компании (только для админа)
+    period_profit = 0
+    if request.user.userprofile.role == 'admin':
+        for deal in period_paid_deals:
+            period_profit += deal.total_profit
     
     # Сделки ожидающие оплаты
     pending_deals = Deal.objects.filter(status='pending_payment')
@@ -68,6 +77,7 @@ def home(request):
     context = {
         'period_deals_count': period_deals_count,
         'period_revenue': period_revenue,
+        'period_profit': period_profit,
         'period_name': period_name,
         'period': period,
         'deals_type': deals_type,

@@ -64,6 +64,8 @@ def deal_list(request):
     """Список всех сделок"""
     search_query = request.GET.get('search', '')
     status_filter = request.GET.get('status', '')
+    date_filter = request.GET.get('date', '')
+    client_filter = request.GET.get('client', '')
     
     deals = Deal.objects.all().order_by('-created_at')
     
@@ -77,11 +79,23 @@ def deal_list(request):
     if status_filter:
         deals = deals.filter(status=status_filter)
     
+    if date_filter:
+        deals = deals.filter(created_at__date=date_filter)
+    
+    if client_filter:
+        deals = deals.filter(client_id=client_filter)
+    
+    # Получаем список всех клиентов для фильтра
+    clients = Client.objects.all().order_by('nickname')
+    
     context = {
         'deals': deals,
         'search_query': search_query,
         'status_filter': status_filter,
+        'date_filter': date_filter,
+        'client_filter': client_filter,
         'status_choices': Deal.STATUS_CHOICES,
+        'clients': clients,
     }
     return render(request, 'deals/deal_list.html', context)
 
@@ -314,13 +328,13 @@ def add_deal_item(request, deal_id):
             if request.user.userprofile.role == 'accountant':
                 # Получаем текущую цену ткани (продажная цена или себестоимость)
                 current_price = fabric_color.fabric.selling_price or fabric_color.fabric.cost_price
-                # Минимальная цена = текущая цена - 30%
-                min_price = current_price * Decimal('0.70')
+                # Минимальная цена = текущая цена - 50%
+                min_price = current_price * Decimal('0.50')
                 if deal_item.price_per_meter < min_price:
-                    messages.error(request, f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 30% ({min_price:.2f} ₸). Поднимите цену!')
+                    messages.error(request, f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 50% ({min_price:.2f} ₸). Поднимите цену!')
                     # Если это AJAX запрос, возвращаем JSON ответ с ошибкой
                     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                        return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 30% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
+                        return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 50% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
                     # Если это обычный запрос, возвращаемся к форме
                     return redirect('deals:deal_detail', deal_id=deal.id) # Или render с формой и ошибками
 
@@ -387,10 +401,10 @@ def edit_deal_item(request, deal_id, item_id):
             if request.user.userprofile.role == 'accountant':
                 # Получаем текущую цену ткани (продажная цена или себестоимость)
                 current_price = fabric_color.fabric.selling_price or fabric_color.fabric.cost_price
-                # Минимальная цена = текущая цена - 30%
-                min_price = current_price * Decimal('0.70')
+                # Минимальная цена = текущая цена - 50%
+                min_price = current_price * Decimal('0.50')
                 if deal_item.price_per_meter < min_price:
-                    return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 30% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
+                    return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 50% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
 
             deal_item.save()
             
@@ -589,21 +603,21 @@ def export_deal_pdf(request, deal_id):
         'CustomTitle',
         parent=styles['h1'],
         fontName=font_name,
-        fontSize=20,
+        fontSize=16,
         alignment=TA_CENTER,
-        spaceAfter=20,
-        spaceBefore=10,
-        leading=24
+        spaceAfter=15,
+        spaceBefore=8,
+        leading=20
     )
     
     normal_style = ParagraphStyle(
         'CustomNormal',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=14,
+        fontSize=9,
         alignment=TA_LEFT,
-        spaceAfter=6,
-        leading=16,
+        spaceAfter=2,
+        leading=11,
         wordWrap='CJK'  # Автоматический перенос для кириллицы
     )
     
@@ -611,24 +625,20 @@ def export_deal_pdf(request, deal_id):
         'CustomBold',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=14,
+        fontSize=10,
         alignment=TA_LEFT,
-        spaceAfter=6,
-        leading=16,
+        spaceAfter=3,
+        leading=12,
         wordWrap='CJK'
     )
     
     story = []
 
-    # Заголовок документа
-    story.append(Paragraph(f"Сделка №{deal.deal_number}", title_style))
-    story.append(Spacer(1, 0.3 * inch))
-
     # Информация о сделке и клиенте
     story.append(Paragraph(f"<b>Клиент:</b> {deal.client.nickname}", normal_style))
     story.append(Paragraph(f"<b>Телефон:</b> {deal.client.phone}", normal_style))
     story.append(Paragraph(f"<b>Дата создания PDF:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}", normal_style))
-    story.append(Spacer(1, 0.3 * inch))
+    story.append(Spacer(1, 0.2 * inch))
 
     # Создаем данные для таблицы с поддержкой переноса текста
     table_data = []
@@ -649,13 +659,13 @@ def export_deal_pdf(request, deal_id):
             fabric_para,
             color_para,
             str(item.width_meters),
-            f"{format_price_for_display(item.price_per_meter)} ₸",
-            f"{format_price_for_display(item.total_price)} ₸"
+            format_price_for_display(item.price_per_meter),
+            format_price_for_display(item.total_price)
         ]
         table_data.append(row)
     
     # Итоговая строка
-    table_data.append(["", "", "", "", "Итого:", f"{format_price_for_display(deal.total_amount)} ₸"])
+    table_data.append(["", "", "", "", "Итого:", format_price_for_display(deal.total_amount)])
 
     # Создаем таблицу с фиксированными ширинами колонок - увеличиваем ширину для лучшего отображения
     col_widths = [1*cm, 5*cm, 4*cm, 2.5*cm, 3*cm, 3*cm]
@@ -668,16 +678,16 @@ def export_deal_pdf(request, deal_id):
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
         ("FONTNAME", (0, 0), (-1, 0), bold_font_name),
-        ("FONTSIZE", (0, 0), (-1, 0), 14),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-        ("TOPPADDING", (0, 0), (-1, 0), 10),
+        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+        ("TOPPADDING", (0, 0), (-1, 0), 6),
         ("FONTWEIGHT", (0, 0), (-1, 0), "BOLD"),
         
         # Данные таблицы - белый фон с черным текстом
         ("BACKGROUND", (0, 1), (-1, -3), colors.white),
         ("TEXTCOLOR", (0, 1), (-1, -3), colors.black),
         ("FONTNAME", (0, 1), (-1, -1), font_name),
-        ("FONTSIZE", (0, 1), (-1, -1), 14),
+        ("FONTSIZE", (0, 1), (-1, -1), 10),
         ("ALIGN", (0, 1), (0, -1), "CENTER"),  # Номер по центру
         ("ALIGN", (1, 1), (2, -1), "LEFT"),    # Ткань и цвет по левому краю
         ("ALIGN", (3, 1), (5, -1), "CENTER"),  # Количество, цена и сумма по центру
@@ -693,10 +703,12 @@ def export_deal_pdf(request, deal_id):
         ("LINEBELOW", (0, 0), (-1, 0), 2, colors.black),  # Толстая линия под заголовком
         
         # Отступы
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (1, 1), (-1, -1), 10),
-        ("BOTTOMPADDING", (1, 1), (-1, -1), 10),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (1, 1), (-1, -2), 5),
+        ("BOTTOMPADDING", (1, 1), (-1, -2), 5),
+        ("TOPPADDING", (0, -1), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
         
         # Высота строк - увеличиваем для лучшего отображения
         ("MINIMUMHEIGHT", (0, 0), (-1, -1), 25),

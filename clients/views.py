@@ -1,9 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, Sum, Count, Avg
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
+from datetime import datetime, timedelta
 from .models import Client
 from .forms import ClientForm
 from core.models import ActivityLog
@@ -34,12 +36,73 @@ def client_detail(request, client_id):
     """Детальная информация о клиенте"""
     client = get_object_or_404(Client, id=client_id)
     
+    # Получаем параметры фильтрации
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    
     # Получаем заказы клиента
     deals = client.deal_set.all().order_by('-created_at')
+    
+    # Фильтруем по датам если указаны
+    if date_from:
+        deals = deals.filter(created_at__date__gte=date_from)
+    if date_to:
+        deals = deals.filter(created_at__date__lte=date_to)
+    
+    # Статистика по всем заказам клиента
+    total_deals = client.deal_set.count()
+    total_revenue = client.deal_set.filter(status='paid').aggregate(total=Sum('total_amount'))['total'] or 0
+    total_profit = 0
+    for deal in client.deal_set.filter(status='paid'):
+        total_profit += deal.total_profit
+    
+    # Статистика по отфильтрованным заказам
+    filtered_deals_count = deals.count()
+    filtered_revenue = deals.filter(status='paid').aggregate(total=Sum('total_amount'))['total'] or 0
+    filtered_profit = 0
+    for deal in deals.filter(status='paid'):
+        filtered_profit += deal.total_profit
+    
+    # Средний чек
+    avg_check = deals.filter(status='paid').aggregate(avg=Avg('total_amount'))['avg'] or 0
+    
+    # Даты для быстрых фильтров
+    today = timezone.now().date()
+    today_iso = today.isoformat()
+    
+    # Неделя назад
+    week_ago = today - timedelta(days=7)
+    week_start_iso = week_ago.isoformat()
+    
+    # Месяц назад
+    month_ago = today - timedelta(days=30)
+    month_start_iso = month_ago.isoformat()
+    
+    # Квартал назад
+    quarter_ago = today - timedelta(days=90)
+    quarter_start_iso = quarter_ago.isoformat()
+    
+    # Год назад
+    year_ago = today - timedelta(days=365)
+    year_start_iso = year_ago.isoformat()
     
     context = {
         'client': client,
         'deals': deals,
+        'total_deals': total_deals,
+        'total_revenue': total_revenue,
+        'total_profit': total_profit,
+        'filtered_deals_count': filtered_deals_count,
+        'filtered_revenue': filtered_revenue,
+        'filtered_profit': filtered_profit,
+        'avg_check': avg_check,
+        'date_from': date_from or today_iso,
+        'date_to': date_to or today_iso,
+        'today_iso': today_iso,
+        'week_start_iso': week_start_iso,
+        'month_start_iso': month_start_iso,
+        'quarter_start_iso': quarter_start_iso,
+        'year_start_iso': year_start_iso,
     }
     return render(request, 'clients/client_detail.html', context)
 

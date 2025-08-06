@@ -1,4 +1,6 @@
 {% extends 'base.html' %}
+{% load deal_filters %}
+{% load math_filters %}
 
 {% block title %}{{ client.nickname }} - CRM Ткани{% endblock %}
 
@@ -75,14 +77,19 @@
             </div>
             <div class="card-body">
                 <div class="text-center mb-3">
-                    <h3 class="text-primary">{{ deals.count }}</h3>
+                    <h3 class="text-primary">{{ total_deals }}</h3>
                     <p class="text-muted mb-0">Всего заказов</p>
                 </div>
                 
-                {% if deals %}
+                {% if total_deals > 0 %}
                     <div class="text-center mb-3">
-                        <h4 class="text-success">{{ client.total_orders_amount }} ₸</h4>
-                        <p class="text-muted mb-0">Общая сумма заказов</p>
+                        <h4 class="text-success">{{ total_revenue|format_price }} ₸</h4>
+                        <p class="text-muted mb-0">Общая выручка</p>
+                    </div>
+                    
+                    <div class="text-center mb-3">
+                        <h5 class="text-info">{{ total_profit|format_price }} ₸</h5>
+                        <p class="text-muted mb-0">Общая прибыль</p>
                     </div>
                     
                     <div class="text-center">
@@ -90,6 +97,71 @@
                         <strong>{{ deals.first.created_at|date:"d.m.Y" }}</strong>
                     </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Фильтры по периодам -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-calendar-range"></i> Фильтры по периодам</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">От:</label>
+                <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">До:</label>
+                <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Быстрые периоды:</label>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-secondary btn-sm {% if not request.GET.date_from and not request.GET.date_to or request.GET.date_from == today_iso and request.GET.date_to == today_iso %}active{% endif %}" onclick="setQuickPeriod('today', this)">Сегодня</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm {% if request.GET.date_from == week_start_iso and request.GET.date_to == today_iso %}active{% endif %}" onclick="setQuickPeriod('week', this)">Неделя</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm {% if request.GET.date_from == month_start_iso and request.GET.date_to == today_iso %}active{% endif %}" onclick="setQuickPeriod('month', this)">Месяц</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm {% if request.GET.date_from == quarter_start_iso and request.GET.date_to == today_iso %}active{% endif %}" onclick="setQuickPeriod('quarter', this)">Квартал</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm {% if request.GET.date_from == year_start_iso and request.GET.date_to == today_iso %}active{% endif %}" onclick="setQuickPeriod('year', this)">Год</button>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">Применить</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Статистика за период -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-2">
+                <strong>Период:</strong><br>
+                <span>{{ date_from|date:"d.m.Y" }} - {{ date_to|date:"d.m.Y" }}</span>
+            </div>
+            <div class="col-md-2">
+                <strong>Количество заказов:</strong><br>
+                <span>{{ filtered_deals_count }}</span>
+            </div>
+            <div class="col-md-2">
+                <strong>Общая выручка:</strong><br>
+                <span>{{ filtered_revenue|format_price }} ₸</span>
+            </div>
+            <div class="col-md-2">
+                <strong>Общая прибыль:</strong><br>
+                <span>{{ filtered_profit|format_price }} ₸</span>
+            </div>
+            <div class="col-md-2">
+                <strong>Средний чек:</strong><br>
+                <span>{{ avg_check|format_price }} ₸</span>
+            </div>
+            <div class="col-md-2">
+                <strong>Рентабельность:</strong><br>
+                <span>{% if filtered_revenue > 0 %}{{ filtered_profit|div:filtered_revenue|mul:100|floatformat:1 }}{% else %}0{% endif %}%</span>
             </div>
         </div>
     </div>
@@ -127,7 +199,7 @@
                                         <span class="badge bg-success">Оплачен</span>
                                     {% endif %}
                                 </td>
-                                <td><strong>{{ deal.total_amount }} ₸</strong></td>
+                                <td><strong>{{ deal.total_amount|format_price }} ₸</strong></td>
                                 <td>
                                     <a href="{% url 'deals:deal_detail' deal.id %}" class="btn btn-sm btn-outline-primary">
                                         <i class="bi bi-eye"></i> Подробнее
@@ -177,6 +249,52 @@ function deleteClient(clientId, clientName) {
             console.error('Error:', error);
             alert('Ошибка при удалении клиента');
         });
+    }
+}
+
+// Функция установки быстрых периодов
+function setQuickPeriod(period, button = null) {
+    const today = new Date();
+    let dateFrom, dateTo;
+    
+    // Remove active class from all quick period buttons
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    switch(period) {
+        case 'today':
+            dateFrom = today.toISOString().split('T')[0];
+            dateTo = today.toISOString().split('T')[0];
+            break;
+        case 'week':
+            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            dateFrom = weekAgo.toISOString().split('T')[0];
+            dateTo = today.toISOString().split('T')[0];
+            break;
+        case 'month':
+            const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+            dateFrom = monthAgo.toISOString().split('T')[0];
+            dateTo = today.toISOString().split('T')[0];
+            break;
+        case 'quarter':
+            const quarterAgo = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate());
+            dateFrom = quarterAgo.toISOString().split('T')[0];
+            dateTo = today.toISOString().split('T')[0];
+            break;
+        case 'year':
+            const yearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+            dateFrom = yearAgo.toISOString().split('T')[0];
+            dateTo = today.toISOString().split('T')[0];
+            break;
+    }
+    
+    document.querySelector('input[name="date_from"]').value = dateFrom;
+    document.querySelector('input[name="date_to"]').value = dateTo;
+
+    // Add active class to the clicked button
+    if (button) {
+        button.classList.add('active');
     }
 }
 </script>

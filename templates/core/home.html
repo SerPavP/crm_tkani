@@ -250,8 +250,12 @@
                         <td class="text-end"><strong>{{ period_deals_count }}</strong></td>
                     </tr>
                     <tr>
-                        <td>Выручка {{ period_name }}:</td>
+                        <td>Общая выручка {{ period_name }}:</td>
                         <td class="text-end"><strong>{{ period_revenue|format_price }} ₸</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Выручка {{ period_name }} (прибыль):</td>
+                        <td class="text-end"><strong>{{ period_profit|format_price }} ₸</strong></td>
                     </tr>
                 </table>
                 <div class="mt-3">

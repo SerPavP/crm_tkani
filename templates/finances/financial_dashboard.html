@@ -50,6 +50,25 @@
     color: white;
     border-radius: 5px;
 }
+
+/* Стили для мобильных устройств */
+@media (max-width: 768px) {
+    .nav-tabs .nav-link {
+        font-size: 1.1rem;
+        padding: 0.75rem 1rem;
+        margin: 0.25rem;
+    }
+    
+    .nav-tabs .nav-link.active {
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .btn-group .btn {
+        font-size: 0.9rem;
+        padding: 0.5rem 0.75rem;
+    }
+}
 </style>
 
 {% block content %}
@@ -212,12 +231,12 @@
     <div class="card-header">
         <ul class="nav nav-tabs card-header-tabs" id="analyticsTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="quick-tab" data-bs-toggle="tab" data-bs-target="#quick" type="button" role="tab">
+                <button class="nav-link active btn-lg px-4 py-2 fw-bold" id="quick-tab" data-bs-toggle="tab" data-bs-target="#quick" type="button" role="tab">
                     <i class="bi bi-lightning"></i> Быстрая информация
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="periods-tab" data-bs-toggle="tab" data-bs-target="#periods" type="button" role="tab">
+                <button class="nav-link btn-lg px-4 py-2 fw-bold" id="periods-tab" data-bs-toggle="tab" data-bs-target="#periods" type="button" role="tab">
                     <i class="bi bi-calendar-range"></i> По периодам
                 </button>
             </li>

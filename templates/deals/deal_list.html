@@ -15,12 +15,12 @@
 <div class="card mb-4">
     <div class="card-body">
         <form method="get" class="row g-3">
-            <div class="col-md-6">
+            <div class="col-md-3">
                 <label for="search" class="form-label">Поиск</label>
                 <input type="text" class="form-control" id="search" name="search" 
                        value="{{ search_query }}" placeholder="Номер заказа, клиент или телефон">
             </div>
-            <div class="col-md-4">
+            <div class="col-md-2">
                 <label for="status" class="form-label">Статус</label>
                 <select class="form-select" id="status" name="status">
                     <option value="">Все статусы</option>
@@ -31,10 +31,31 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="col-md-2">
+                <label for="date" class="form-label">Дата</label>
+                <input type="date" class="form-control" id="date" name="date" 
+                       value="{{ date_filter }}" placeholder="Выберите дату">
+            </div>
+            <div class="col-md-3">
+                <label for="client" class="form-label">Клиент</label>
+                <select class="form-select" id="client" name="client">
+                    <option value="">Все клиенты</option>
+                    {% for client in clients %}
+                        <option value="{{ client.id }}" {% if client_filter == client.id|stringformat:"s" %}selected{% endif %}>
+                            {{ client.nickname }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-search"></i> Найти
-                </button>
+                <div class="d-grid gap-2 w-100">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Найти
+                    </button>
+                    <a href="{% url 'deals:deal_list' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x-circle"></i> Сбросить
+                    </a>
+                </div>
             </div>
         </form>
     </div>
@@ -119,13 +140,13 @@
                 <i class="bi bi-cart-x display-1 text-muted"></i>
                 <h4 class="text-muted mt-3">Сделки не найдены</h4>
                 <p class="text-muted">
-                    {% if search_query or status_filter %}
+                    {% if search_query or status_filter or date_filter or client_filter %}
                         Попробуйте изменить параметры поиска
                     {% else %}
                         Создайте первую сделку
                     {% endif %}
                 </p>
-                {% if not search_query and not status_filter %}
+                {% if not search_query and not status_filter and not date_filter and not client_filter %}
                     <a href="{% url 'deals:deal_create' %}" class="btn btn-success">
                         <i class="bi bi-plus-circle"></i> Создать сделку
                     </a>
@@ -148,9 +169,29 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = this.getAttribute('data-href');
         });
     });
+    
+    // Автоматическая отправка формы при изменении фильтров (кроме поиска)
+    document.getElementById('status').addEventListener('change', function() {
+        this.form.submit();
+    });
+    
+    document.getElementById('date').addEventListener('change', function() {
+        this.form.submit();
+    });
+    
+    document.getElementById('client').addEventListener('change', function() {
+        this.form.submit();
+    });
+    
+    // Обработка поиска с задержкой
+    let searchTimeout;
+    document.getElementById('search').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            this.form.submit();
+        }, 500); // Задержка 500мс
+    });
 });
-
-
 </script>
 {% endblock %}
 
