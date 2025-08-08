@@ -150,46 +150,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Динамический поиск
-    const searchInput = document.getElementById('searchInput');
+    // Поиск по кнопке и Enter
     const searchForm = document.getElementById('searchForm');
-    const resultsCount = document.getElementById('resultsCount');
-    let searchTimeout;
     
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            const query = this.value.trim();
-            
-            // Показываем индикатор загрузки
-            if (resultsCount) {
-                resultsCount.innerHTML = '<i class="bi bi-hourglass-split"></i> Поиск...';
-            }
-            
-            // Задержка перед отправкой запроса
-            searchTimeout = setTimeout(() => {
-                if (query.length >= 1 || query.length === 0) {
-                    // Обновляем URL и перезагружаем страницу
-                    const url = new URL(window.location);
-                    if (query) {
-                        url.searchParams.set('search', query);
-                    } else {
-                        url.searchParams.delete('search');
-                    }
-                    window.location.href = url.toString();
-                }
-            }, 500); // Задержка 500мс
-        });
-        
-        // Предотвращаем отправку формы при нажатии Enter
+    if (searchForm) {
+        // Разрешаем обычную отправку формы
         searchForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const query = searchInput.value.trim();
-            if (query) {
-                const url = new URL(window.location);
-                url.searchParams.set('search', query);
-                window.location.href = url.toString();
-            }
+            // Форма отправляется обычным способом
+            // Не предотвращаем отправку
         });
     }
 });

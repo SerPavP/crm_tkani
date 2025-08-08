@@ -30,10 +30,20 @@
                                     <i class="bi bi-cart"></i> Сделки
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'warehouse:view_rolls' %}">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                     <i class="bi bi-box-seam"></i> Рулоны
                                 </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'warehouse:view_rolls' %}">
+                                        <i class="bi bi-boxes"></i> Все рулоны
+                                    </a></li>
+                                    {% if user.userprofile.role == 'admin' %}
+                                    <li><a class="dropdown-item" href="{% url 'warehouse:deleted_rolls_history' %}">
+                                        <i class="bi bi-trash"></i> История удалений
+                                    </a></li>
+                                    {% endif %}
+                                </ul>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'fabrics:fabric_list' %}">
@@ -93,6 +103,11 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'fabrics:fabric_list' %}">
                                     <i class="bi bi-palette"></i> Ткани
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'warehouse:deleted_rolls_history' %}">
+                                    <i class="bi bi-trash"></i> История удалений
                                 </a>
                             </li>
                         </ul>

@@ -11,6 +11,7 @@ from .models import SystemSettings
 from .forms import SystemSettingsForm
 from datetime import date, timedelta, datetime
 from decimal import Decimal
+import calendar
 
 
 @login_required
@@ -105,10 +106,17 @@ def financial_dashboard(request):
     today_revenue = calculate_revenue_for_deals(today_deals)
     today_deals_count = today_deals.count()
     
+    # Добавляем отладочную информацию
+    print(f"DEBUG: Сегодня ({date.today()}): {today_deals_count} сделок, выручка: {today_revenue}")
+    all_today_deals = Deal.objects.filter(created_at__date=date.today())
+    print(f"DEBUG: Всего сделок сегодня (любой статус): {all_today_deals.count()}")
+    
     week_start = date.today() - timedelta(days=7)
     week_deals = Deal.objects.filter(created_at__date__gte=week_start, created_at__date__lte=date.today(), status='paid')
     week_revenue = calculate_revenue_for_deals(week_deals)
     week_deals_count = week_deals.count()
+    
+    print(f"DEBUG: За неделю ({week_start} - {date.today()}): {week_deals_count} сделок, выручка: {week_revenue}")
     
     month_start = date.today() - timedelta(days=30)
     month_deals = Deal.objects.filter(created_at__date__gte=month_start, created_at__date__lte=date.today(), status='paid')
@@ -132,13 +140,14 @@ def financial_dashboard(request):
     if not top_fabric_month or not top_fabric_month.revenue:
         top_fabric_month = type('obj', (object,), {'name': 'Нет данных', 'revenue': 0})()
     
-    # Оборачиваемость (среднее время между заказами)
+    # Оборачиваемость (среднее количество дней между сделками)
     all_deals = Deal.objects.filter(status='paid').order_by('created_at')
     if all_deals.count() > 1:
         first_deal = all_deals.first()
         last_deal = all_deals.last()
         total_days = (last_deal.created_at.date() - first_deal.created_at.date()).days
-        turnover_days = total_days / all_deals.count() if all_deals.count() > 0 else 0
+        # Среднее количество дней между сделками
+        turnover_days = total_days / (all_deals.count() - 1) if all_deals.count() > 1 else 0
     else:
         turnover_days = 0
     
@@ -284,6 +293,146 @@ def financial_dashboard(request):
             'revenue_percentage': revenue_percentage
         })
     
+    # Топ 20 клиентов и тканей (только для админа)
+    top_20_clients_by_revenue = []
+    top_20_clients_by_count = []
+    top_20_clients_by_profit = []
+    top_20_fabrics_by_orders = []
+    top_20_fabrics_by_meters = []
+    top_20_fabrics_by_profit = []
+    
+    if hasattr(request.user, 'userprofile') and request.user.userprofile.role == 'admin':
+        from clients.models import Client
+        
+        # Топ 20 клиентов по выручке
+        clients_revenue_stats = Deal.objects.filter(status='paid').values('client').annotate(
+            total_deals=Count('id'),
+            total_revenue=Sum('total_amount')
+        ).order_by('-total_revenue')[:20]
+        
+        for client_stat in clients_revenue_stats:
+            try:
+                client = Client.objects.get(id=client_stat['client'])
+                top_20_clients_by_revenue.append({
+                    'client': client,
+                    'total_deals': client_stat['total_deals'],
+                    'total_revenue': client_stat['total_revenue']
+                })
+            except Client.DoesNotExist:
+                continue
+        
+        # Топ 20 клиентов по количеству заказов
+        clients_count_stats = Deal.objects.filter(status='paid').values('client').annotate(
+            total_deals=Count('id'),
+            total_revenue=Sum('total_amount')
+        ).order_by('-total_deals')[:20]
+        
+        for client_stat in clients_count_stats:
+            try:
+                client = Client.objects.get(id=client_stat['client'])
+                avg_check = client_stat['total_revenue'] / client_stat['total_deals'] if client_stat['total_deals'] > 0 else 0
+                top_20_clients_by_count.append({
+                    'client': client,
+                    'total_deals': client_stat['total_deals'],
+                    'avg_check': avg_check
+                })
+            except Client.DoesNotExist:
+                continue
+        
+        # Топ 20 клиентов по прибыли
+        clients_profit_stats = Deal.objects.filter(status='paid').values('client').annotate(
+            total_deals=Count('id'),
+            total_revenue=Sum('total_amount')
+        ).order_by('-total_revenue')[:50]  # Берем больше для точного расчета прибыли
+        
+        clients_with_profit = []
+        for client_stat in clients_profit_stats:
+            try:
+                client = Client.objects.get(id=client_stat['client'])
+                client_deals = Deal.objects.filter(client=client, status='paid')
+                client_profit = calculate_profit_for_deals(client_deals)
+                margin = (client_profit / client_stat['total_revenue'] * 100) if client_stat['total_revenue'] > 0 else 0
+                
+                clients_with_profit.append({
+                    'client': client,
+                    'total_deals': client_stat['total_deals'],
+                    'total_revenue': client_stat['total_revenue'],
+                    'total_profit': client_profit,
+                    'margin': margin
+                })
+            except Client.DoesNotExist:
+                continue
+        
+        # Сортируем по прибыли и берем топ 20
+        top_20_clients_by_profit = sorted(clients_with_profit, key=lambda x: x['total_profit'], reverse=True)[:20]
+        
+        # Топ 20 тканей по количеству заказов
+        fabrics_orders_stats = DealItem.objects.filter(deal__status='paid').values(
+            'fabric_color__fabric'
+        ).annotate(
+            total_orders=Count('deal', distinct=True),
+            order_frequency=Count('id')
+        ).order_by('-total_orders')[:20]
+        
+        for fabric_stat in fabrics_orders_stats:
+            try:
+                fabric = Fabric.objects.get(id=fabric_stat['fabric_color__fabric'])
+                top_20_fabrics_by_orders.append({
+                    'fabric': fabric,
+                    'total_orders': fabric_stat['total_orders'],
+                    'order_frequency': fabric_stat['order_frequency']
+                })
+            except Fabric.DoesNotExist:
+                continue
+        
+        # Топ 20 тканей по метрам
+        fabrics_meters_stats = DealItem.objects.filter(deal__status='paid').values(
+            'fabric_color__fabric'
+        ).annotate(
+            total_orders=Count('deal', distinct=True),
+            total_meters=Sum('width_meters')
+        ).order_by('-total_meters')[:20]
+        
+        for fabric_stat in fabrics_meters_stats:
+            try:
+                fabric = Fabric.objects.get(id=fabric_stat['fabric_color__fabric'])
+                top_20_fabrics_by_meters.append({
+                    'fabric': fabric,
+                    'total_orders': fabric_stat['total_orders'],
+                    'total_meters': fabric_stat['total_meters']
+                })
+            except Fabric.DoesNotExist:
+                continue
+        
+        # Топ 20 тканей по прибыли
+        fabrics_profit_stats = DealItem.objects.filter(deal__status='paid').values(
+            'fabric_color__fabric'
+        ).annotate(
+            total_orders=Count('deal', distinct=True),
+            total_meters=Sum('width_meters'),
+            total_revenue=Sum('total_price'),
+            total_cost=Sum(F('width_meters') * F('fabric_color__fabric__cost_price'))
+        ).order_by('-total_revenue')[:50]  # Берем больше для точного расчета
+        
+        fabrics_with_profit = []
+        for fabric_stat in fabrics_profit_stats:
+            try:
+                fabric = Fabric.objects.get(id=fabric_stat['fabric_color__fabric'])
+                fabric_profit = fabric_stat['total_revenue'] - fabric_stat['total_cost']
+                
+                fabrics_with_profit.append({
+                    'fabric': fabric,
+                    'total_orders': fabric_stat['total_orders'],
+                    'total_meters': fabric_stat['total_meters'],
+                    'total_revenue': fabric_stat['total_revenue'],
+                    'total_profit': fabric_profit
+                })
+            except Fabric.DoesNotExist:
+                continue
+        
+        # Сортируем по прибыли и берем топ 20
+        top_20_fabrics_by_profit = sorted(fabrics_with_profit, key=lambda x: x['total_profit'], reverse=True)[:20]
+
     # Данные для периода (если указаны даты)
     period_deals = Deal.objects.filter(
         created_at__date__gte=date_from,
@@ -296,6 +445,52 @@ def financial_dashboard(request):
     period_deals_count = period_deals.count()
     period_avg_check = period_revenue / period_deals_count if period_deals_count > 0 else 0
 
+    # Данные для графиков
+    # 1. Заработок по неделям текущего месяца
+    
+    today = date.today()
+    month_start = today.replace(day=1)
+    
+    # Вычисляем недели месяца
+    weekly_revenue = []
+    weekly_deals = []
+    weekly_avg_check = []
+    week_labels = []
+    
+    current_week_start = month_start
+    week_num = 1
+    
+    while current_week_start <= today:
+        week_end = min(current_week_start + timedelta(days=6), today)
+        
+        week_deals_qs = Deal.objects.filter(
+            created_at__date__gte=current_week_start,
+            created_at__date__lte=week_end,
+            status='paid'
+        )
+        
+        week_revenue = calculate_revenue_for_deals(week_deals_qs)
+        week_deals_count = week_deals_qs.count()
+        week_avg = week_revenue / week_deals_count if week_deals_count > 0 else 0
+        
+        weekly_revenue.append(float(week_revenue))
+        weekly_deals.append(week_deals_count)
+        weekly_avg_check.append(float(week_avg))
+        week_labels.append(f"Неделя {week_num}")
+        
+        current_week_start = week_end + timedelta(days=1)
+        week_num += 1
+    
+    # 2. Топ 10 популярных тканей
+    top_fabrics_data = DealItem.objects.filter(deal__status='paid').values(
+        'fabric_color__fabric__name'
+    ).annotate(
+        order_count=Count('deal', distinct=True)
+    ).order_by('-order_count')[:10]
+    
+    fabric_names = [item['fabric_color__fabric__name'] for item in top_fabrics_data]
+    fabric_counts = [item['order_count'] for item in top_fabrics_data]
+
     context = {
         # KPI-блоки
         'current_period_revenue': current_period_revenue,
@@ -304,6 +499,7 @@ def financial_dashboard(request):
         'current_period_deals_count': current_period_deals_count,
         'current_period_avg_check': current_period_avg_check,
         'current_period_rolls_count': current_period_rolls_count,
+        'current_period_cost': current_period_revenue - current_period_profit,
         
         # Тренды
         'revenue_trend': revenue_trend,
@@ -346,6 +542,14 @@ def financial_dashboard(request):
         'top_fabrics_by_profit': top_fabrics_by_profit,
         'top_fabrics_by_revenue': top_fabrics_by_revenue,
         
+        # Топ 20 (только для админа)
+        'top_20_clients_by_revenue': top_20_clients_by_revenue,
+        'top_20_clients_by_count': top_20_clients_by_count,
+        'top_20_clients_by_profit': top_20_clients_by_profit,
+        'top_20_fabrics_by_orders': top_20_fabrics_by_orders,
+        'top_20_fabrics_by_meters': top_20_fabrics_by_meters,
+        'top_20_fabrics_by_profit': top_20_fabrics_by_profit,
+        
         # Данные для периода
         'date_from': date_from,
         'date_to': date_to,
@@ -355,6 +559,14 @@ def financial_dashboard(request):
         'period_deals_count': period_deals_count,
         'period_avg_check': period_avg_check,
         'period_deals': period_deals,
+        
+        # Данные для графиков
+        'weekly_revenue': weekly_revenue,
+        'weekly_deals': weekly_deals,
+        'weekly_avg_check': weekly_avg_check,
+        'week_labels': week_labels,
+        'fabric_names': fabric_names,
+        'fabric_counts': fabric_counts,
     }
     
     return render(request, 'finances/financial_dashboard.html', context)

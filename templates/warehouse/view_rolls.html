@@ -9,27 +9,36 @@
 
 <!-- Большие кнопки действий -->
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <a href="{% url 'warehouse:create_barcode' %}" class="btn btn-success btn-lg w-100 py-4">
             <i class="bi bi-plus-circle display-4 d-block mb-2"></i>
             <strong>Создать рулон</strong>
             <div class="small text-light">Добавить новый рулон на склад</div>
         </a>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <a href="{% url 'warehouse:scan_barcode' %}" class="btn btn-warning btn-lg w-100 py-4">
             <i class="bi bi-upc-scan display-4 d-block mb-2"></i>
             <strong>Сканировать</strong>
             <div class="small text-light">Списать рулон со склада</div>
         </a>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <a href="{% url 'fabrics:fabric_list' %}" class="btn btn-info btn-lg w-100 py-4">
             <i class="bi bi-palette display-4 d-block mb-2"></i>
             <strong>Список тканей</strong>
             <div class="small text-light">Просмотр тканей и рулонов</div>
         </a>
     </div>
+    {% if user.userprofile.role == 'admin' or user.userprofile.role == 'warehouse' %}
+    <div class="col-md-3">
+        <a href="{% url 'warehouse:deleted_rolls_history' %}" class="btn btn-danger btn-lg w-100 py-4">
+            <i class="bi bi-trash display-4 d-block mb-2"></i>
+            <strong>История удалений</strong>
+            <div class="small text-light">Удаленные рулоны</div>
+        </a>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Фильтры и поиск -->

@@ -582,3 +582,55 @@ def search_barcodes_api(request):
     barcodes = list(FabricRoll.objects.filter(barcode__icontains=q, is_active=True).order_by('-created_at').values_list('barcode', flat=True)[:10])
     return JsonResponse({'barcodes': barcodes})
 
+
+def extract_barcode_from_description(description):
+    """Извлекает штрих-код из описания лога удаления рулона"""
+    import re
+    
+    # Паттерны для извлечения штрих-кода
+    patterns = [
+        r'Удален рулон (\w+) вручную',
+        r'Рулон (\w+) удален безвозвратно',
+        r'Добавлен рулон (\w+) вручную'  # На случай если есть логи создания
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, description)
+        if match:
+            return match.group(1)
+    
+    return None
+
+
+@login_required
+def deleted_rolls_history(request):
+    """История удаленных рулонов - доступна только админам и складовщикам"""
+    # Проверяем права доступа
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.role not in ['admin', 'warehouse']:
+        messages.error(request, 'У вас нет прав для просмотра истории удаленных рулонов.')
+        return redirect('warehouse:view_rolls')
+    
+    # Получаем все записи об удалении рулонов из ActivityLog
+    deleted_rolls = ActivityLog.objects.filter(
+        action='delete',
+        object_type='FabricRoll'
+    ).select_related('user').order_by('-timestamp')
+    
+    # Добавляем штрих-код к каждой записи
+    for log in deleted_rolls:
+        log.barcode = extract_barcode_from_description(log.description)
+    
+    # Пагинация
+    from django.core.paginator import Paginator
+    paginator = Paginator(deleted_rolls, 50)  # 50 записей на страницу
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'deleted_rolls': page_obj,
+        'total_count': deleted_rolls.count()
+    }
+    
+    return render(request, 'warehouse/deleted_rolls_history.html', context)
+

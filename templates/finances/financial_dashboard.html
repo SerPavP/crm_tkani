@@ -226,6 +226,53 @@
     </div>
 </div>
 
+<!-- Финансовые графики -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-currency-exchange"></i> Заработок за этот месяц (по неделям)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="weeklyRevenueChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-bar-chart-fill"></i> Топ 10 популярных тканей</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="topFabricsChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Количество сделок за месяц (по неделям)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="weeklyDealsChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-cash-stack"></i> Средний чек за месяц</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="avgCheckChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Переключатель режимов -->
 <div class="card mb-4">
     <div class="card-header">
@@ -240,6 +287,13 @@
                     <i class="bi bi-calendar-range"></i> По периодам
                 </button>
             </li>
+            {% if user.userprofile.role == 'admin' %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link btn-lg px-4 py-2 fw-bold" id="top20-tab" data-bs-toggle="tab" data-bs-target="#top20" type="button" role="tab">
+                    <i class="bi bi-trophy"></i> Топ 20
+                </button>
+            </li>
+            {% endif %}
         </ul>
     </div>
     <div class="card-body">
@@ -286,184 +340,127 @@
                     </div>
                 </div>
 
+                <!-- Дополнительная информация -->
                 <div class="row">
-                    <!-- Топ-5 клиентов -->
-                    <div class="col-md-6">
+                    <!-- Финансовые показатели -->
+                    <div class="col-md-4">
                         <div class="card">
                             <div class="card-header">
-                                <ul class="nav nav-tabs card-header-tabs" role="tablist">
-                                    <li class="nav-item">
-                                        <a class="nav-link active" data-bs-toggle="tab" href="#clients-profit">По выручке</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" data-bs-toggle="tab" href="#clients-count">По количеству</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" data-bs-toggle="tab" href="#clients-sum">По общей продажи</a>
-                                    </li>
-                                </ul>
+                                <h6 class="mb-0"><i class="bi bi-graph-up"></i> Финансовые показатели</h6>
                             </div>
                             <div class="card-body">
-                                <div class="tab-content">
-                                    <div class="tab-pane fade show active" id="clients-profit">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Клиент</th>
-                                                        <th>Прибыль</th>
-                                                        <th>% от общей</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for client in top_clients_by_profit %}
-                                                    <tr>
-                                                        <td><a href="{% url 'clients:client_detail' client.id %}">{{ client.nickname }}</a></td>
-                                                        <td>{{ client.total_profit|format_price }} ₸</td>
-                                                        <td>{{ client.profit_percentage|floatformat:1 }}%</td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                <div class="row text-center">
+                                    <div class="col-12 mb-3">
+                                        <h5 class="text-success">{{ current_period_profit|format_price }} ₸</h5>
+                                        <small class="text-muted">Общая прибыль (30 дней)</small>
                                     </div>
-                                    <div class="tab-pane fade" id="clients-count">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Клиент</th>
-                                                        <th>Количество</th>
-                                                        <th>Средний чек</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for client in top_clients_by_count %}
-                                                    <tr>
-                                                        <td><a href="{% url 'clients:client_detail' client.id %}">{{ client.nickname }}</a></td>
-                                                        <td>{{ client.deals_count }}</td>
-                                                        <td>{{ client.avg_check|format_price }} ₸</td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    <div class="col-6">
+                                        <h6 class="text-info">{{ current_period_margin|floatformat:1 }}%</h6>
+                                        <small class="text-muted">Рентабельность</small>
                                     </div>
-                                    <div class="tab-pane fade" id="clients-sum">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Клиент</th>
-                                                        <th>Общая сумма</th>
-                                                        <th>Последняя покупка</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for client in top_clients_by_sum %}
-                                                    <tr>
-                                                        <td><a href="{% url 'clients:client_detail' client.id %}">{{ client.nickname }}</a></td>
-                                                        <td>{{ client.total_sum|format_price }} ₸</td>
-                                                        <td>{{ client.last_purchase|date:"d.m.Y" }}</td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    <div class="col-6">
+                                        <h6 class="text-warning">{{ current_period_avg_check|format_price }} ₸</h6>
+                                        <small class="text-muted">Средний чек</small>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Топ-5 тканей -->
-                    <div class="col-md-6">
+                    <!-- Складские показатели -->
+                    <div class="col-md-4">
                         <div class="card">
                             <div class="card-header">
-                                <ul class="nav nav-tabs card-header-tabs" role="tablist">
-                                    <li class="nav-item">
-                                        <a class="nav-link active" data-bs-toggle="tab" href="#fabrics-meters">По частоте заказов</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" data-bs-toggle="tab" href="#fabrics-profit">По прибыли</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" data-bs-toggle="tab" href="#fabrics-revenue">По выручке</a>
-                                    </li>
-                                </ul>
+                                <h6 class="mb-0"><i class="bi bi-box-seam"></i> Складские показатели</h6>
                             </div>
                             <div class="card-body">
-                                <div class="tab-content">
-                                    <div class="tab-pane fade show active" id="fabrics-meters">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Ткань+цвет</th>
-                                                        <th>Метры</th>
-                                                        <th>Частота</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for fabric in top_fabrics_by_meters %}
-                                                    <tr>
-                                                        <td><a href="{% url 'fabrics:fabric_detail' fabric.id %}">{{ fabric.name }} ({{ fabric.color }})</a></td>
-                                                        <td>{{ fabric.total_meters|floatformat:1 }}м</td>
-                                                        <td>{{ fabric.order_frequency }} заказов</td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                <div class="row text-center">
+                                    <div class="col-12 mb-3">
+                                        <h5 class="text-primary">{{ current_period_rolls_count }}</h5>
+                                        <small class="text-muted">Рулонов использовано (30 дней)</small>
                                     </div>
-                                    <div class="tab-pane fade" id="fabrics-profit">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Ткань+цвет</th>
-                                                        <th>Прибыль</th>
-                                                        <th>Рентабельность</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for fabric in top_fabrics_by_profit %}
-                                                    <tr>
-                                                        <td><a href="{% url 'fabrics:fabric_detail' fabric.id %}">{{ fabric.name }} ({{ fabric.color }})</a></td>
-                                                        <td>{{ fabric.total_profit|format_price }} ₸</td>
-                                                        <td>{{ fabric.margin|floatformat:1 }}%</td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    <div class="col-6">
+                                        <h6 class="text-secondary">{{ turnover_days|floatformat:0 }}</h6>
+                                        <small class="text-muted">Дней оборота</small>
                                     </div>
-                                    <div class="tab-pane fade" id="fabrics-revenue">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Ткань+цвет</th>
-                                                        <th>Выручка</th>
-                                                        <th>% от общих</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for fabric in top_fabrics_by_revenue %}
-                                                    <tr>
-                                                        <td><a href="{% url 'fabrics:fabric_detail' fabric.id %}">{{ fabric.name }} ({{ fabric.color }})</a></td>
-                                                        <td>{{ fabric.total_revenue|format_price }} ₸</td>
-                                                        <td>{{ fabric.revenue_percentage|floatformat:1 }}%</td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    <div class="col-6">
+                                        <h6 class="text-info">{{ top_fabric_month.name|default:"—" }}</h6>
+                                        <small class="text-muted">Топ ткань месяца</small>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Тренды и сравнения -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="bi bi-trending-up"></i> Тренды (vs прошлый период)</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row text-center">
+                                    <div class="col-6 mb-2">
+                                        <span class="{% if revenue_trend >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            <i class="bi {% if revenue_trend >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                                            {{ revenue_trend|floatformat:1 }}%
+                                        </span>
+                                        <br><small class="text-muted">Выручка</small>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <span class="{% if profit_trend >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            <i class="bi {% if profit_trend >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                                            {{ profit_trend|floatformat:1 }}%
+                                        </span>
+                                        <br><small class="text-muted">Прибыль</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="{% if deals_count_trend >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            <i class="bi {% if deals_count_trend >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                                            {{ deals_count_trend|floatformat:1 }}%
+                                        </span>
+                                        <br><small class="text-muted">Количество сделок</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="{% if avg_check_trend >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            <i class="bi {% if avg_check_trend >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                                            {{ avg_check_trend|floatformat:1 }}%
+                                        </span>
+                                        <br><small class="text-muted">Средний чек</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Дополнительная статистика -->
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="bi bi-calendar-check"></i> Общая статистика</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <h6 class="text-primary">{{ current_period_deals_count }}</h6>
+                                        <small class="text-muted">Всего сделок</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <h6 class="text-success">{{ current_period_revenue|format_price }} ₸</h6>
+                                        <small class="text-muted">Общая выручка</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <h6 class="text-warning">{{ turnover_days|floatformat:0 }} дн.</h6>
+                                        <small class="text-muted">Оборачиваемость</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
                 </div>
             </div>
 
@@ -593,36 +590,262 @@
     </div>
 </div>
 
-<!-- Справка для администратора -->
-<div class="card mt-5">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Справка по финансовой аналитике</h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <h6>Общие показатели (KPI-блоки):</h6>
-                <ul>
-                    <li><strong>Выручка за период</strong>: Общая сумма всех оплаченных сделок за выбранный период. Стрелка показывает тренд по сравнению с предыдущим аналогичным периодом.</li>
-                    <li><strong>Прибыль за период</strong>: Выручка за вычетом себестоимости проданных товаров.</li>
-                    <li><strong>Рентабельность</strong>: Процентное отношение прибыли к выручке (Прибыль / Выручка * 100%).</li>
-                    <li><strong>Средний чек</strong>: Средняя сумма одной сделки.</li>
-                    <li><strong>Количество сделок</strong>: Общее число оплаченных сделок.</li>
-                    <li><strong>Топ-ткань месяца</strong>: Ткань (среди всех цветов), принесшая наибольшую выручку за последний месяц.</li>
-                </ul>
+
+
+            <!-- Топ 20 -->
+            {% if user.userprofile.role == 'admin' %}
+            <div class="tab-pane fade" id="top20" role="tabpanel">
+                <div class="row">
+                    <!-- Топ 20 клиентов -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                                    <li class="nav-item">
+                                        <a class="nav-link active" data-bs-toggle="tab" href="#top20-clients-revenue">По общей выручке</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-bs-toggle="tab" href="#top20-clients-count">По заказам</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-bs-toggle="tab" href="#top20-clients-profit">По выручке</a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="card-body">
+                                <div class="tab-content">
+                                    <!-- По выручке -->
+                                    <div class="tab-pane fade show active" id="top20-clients-revenue">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Клиент</th>
+                                                        <th>Общая выручка</th>
+                                                        <th>Заказов</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for client_stat in top_20_clients_by_revenue %}
+                                                    <tr class="clickable-row" data-href="{% url 'clients:client_detail' client_stat.client.id %}" style="cursor: pointer;">
+                                                        <td>{{ forloop.counter }}</td>
+                                                        <td>
+                                                            <strong>{{ client_stat.client.nickname }}</strong>
+                                                            {% if client_stat.client.phone %}
+                                                                <br><small class="text-muted">{{ client_stat.client.phone }}</small>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td><strong>{{ client_stat.total_revenue|format_price }} ₸</strong></td>
+                                                        <td><span class="badge bg-primary">{{ client_stat.total_deals }}</span></td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr>
+                                                        <td colspan="4" class="text-center text-muted">Нет данных</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- По количеству заказов -->
+                                    <div class="tab-pane fade" id="top20-clients-count">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Клиент</th>
+                                                        <th>Количество заказов</th>
+                                                        <th>Средний чек</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for client_stat in top_20_clients_by_count %}
+                                                    <tr class="clickable-row" data-href="{% url 'clients:client_detail' client_stat.client.id %}" style="cursor: pointer;">
+                                                        <td>{{ forloop.counter }}</td>
+                                                        <td>
+                                                            <strong>{{ client_stat.client.nickname }}</strong>
+                                                            {% if client_stat.client.phone %}
+                                                                <br><small class="text-muted">{{ client_stat.client.phone }}</small>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td><span class="badge bg-primary">{{ client_stat.total_deals }}</span></td>
+                                                        <td>{{ client_stat.avg_check|format_price }} ₸</td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr>
+                                                        <td colspan="4" class="text-center text-muted">Нет данных</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- По выручке -->
+                                    <div class="tab-pane fade" id="top20-clients-profit">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Клиент</th>
+                                                        <th>Прибыль</th>
+                                                        <th>Рентабельность</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for client_stat in top_20_clients_by_profit %}
+                                                    <tr class="clickable-row" data-href="{% url 'clients:client_detail' client_stat.client.id %}" style="cursor: pointer;">
+                                                        <td>{{ forloop.counter }}</td>
+                                                        <td>
+                                                            <strong>{{ client_stat.client.nickname }}</strong>
+                                                            {% if client_stat.client.phone %}
+                                                                <br><small class="text-muted">{{ client_stat.client.phone }}</small>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="text-success"><strong>{{ client_stat.total_profit|format_price }} ₸</strong></td>
+                                                        <td>{{ client_stat.margin|floatformat:1 }}%</td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr>
+                                                        <td colspan="4" class="text-center text-muted">Нет данных</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Топ 20 тканей -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                                    <li class="nav-item">
+                                        <a class="nav-link active" data-bs-toggle="tab" href="#top20-fabrics-orders">По заказам</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-bs-toggle="tab" href="#top20-fabrics-meters">По метрам</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-bs-toggle="tab" href="#top20-fabrics-profit">По выручке</a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="card-body">
+                                <div class="tab-content">
+                                    <!-- По количеству заказов -->
+                                    <div class="tab-pane fade show active" id="top20-fabrics-orders">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Ткань</th>
+                                                        <th>Заказов</th>
+                                                        <th>Частота</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for fabric_stat in top_20_fabrics_by_orders %}
+                                                    <tr class="clickable-row" data-href="{% url 'fabrics:fabric_detail' fabric_stat.fabric.id %}" style="cursor: pointer;">
+                                                        <td>{{ forloop.counter }}</td>
+                                                        <td>
+                                                            <strong>{{ fabric_stat.fabric.name }}</strong>
+                                                            <br><small class="text-muted">{{ fabric_stat.fabric.category.name }}</small>
+                                                        </td>
+                                                        <td><span class="badge bg-info">{{ fabric_stat.total_orders }}</span></td>
+                                                        <td>{{ fabric_stat.order_frequency }}</td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr>
+                                                        <td colspan="4" class="text-center text-muted">Нет данных</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- По метрам -->
+                                    <div class="tab-pane fade" id="top20-fabrics-meters">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Ткань</th>
+                                                        <th>Метров</th>
+                                                        <th>Заказов</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for fabric_stat in top_20_fabrics_by_meters %}
+                                                    <tr class="clickable-row" data-href="{% url 'fabrics:fabric_detail' fabric_stat.fabric.id %}" style="cursor: pointer;">
+                                                        <td>{{ forloop.counter }}</td>
+                                                        <td>
+                                                            <strong>{{ fabric_stat.fabric.name }}</strong>
+                                                            <br><small class="text-muted">{{ fabric_stat.fabric.category.name }}</small>
+                                                        </td>
+                                                        <td><span class="badge bg-secondary">{{ fabric_stat.total_meters|floatformat:1 }}м</span></td>
+                                                        <td><span class="badge bg-info">{{ fabric_stat.total_orders }}</span></td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr>
+                                                        <td colspan="4" class="text-center text-muted">Нет данных</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- По выручке -->
+                                    <div class="tab-pane fade" id="top20-fabrics-profit">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Ткань</th>
+                                                        <th>Прибыль</th>
+                                                        <th>Выручка</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for fabric_stat in top_20_fabrics_by_profit %}
+                                                    <tr class="clickable-row" data-href="{% url 'fabrics:fabric_detail' fabric_stat.fabric.id %}" style="cursor: pointer;">
+                                                        <td>{{ forloop.counter }}</td>
+                                                        <td>
+                                                            <strong>{{ fabric_stat.fabric.name }}</strong>
+                                                            <br><small class="text-muted">{{ fabric_stat.fabric.category.name }}</small>
+                                                        </td>
+                                                        <td class="text-success"><strong>{{ fabric_stat.total_profit|format_price }} ₸</strong></td>
+                                                        <td><strong>{{ fabric_stat.total_revenue|format_price }} ₸</strong></td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr>
+                                                        <td colspan="4" class="text-center text-muted">Нет данных</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-6">
-                <h6>Режимы отображения:</h6>
-                <ul>
-                    <li><strong>Быстрая информация</strong>: Краткая сводка ключевых данных на текущий момент (сегодня, неделя, месяц, квартал), а также топ-списки клиентов и тканей.</li>
-                    <li><strong>По периодам</strong>: Детальная таблица всех сделок за выбранный промежуток времени с общими итогами сверху. Можно выбрать даты вручную или использовать быстрые фильтры.</li>
-                </ul>
-                <h6>Топ-списки:</h6>
-                <ul>
-                    <li><strong>Топ-5 клиентов</strong>: Можно посмотреть по прибыли, количеству сделок или общей сумме. Клиенты кликабельны, ведут на их детальную страницу.</li>
-                    <li><strong>Топ-5 тканей</strong>: Можно посмотреть по частоте заказов (сколько раз заказывали), по прибыли или по выручке. Ткани кликабельны, ведут на детальную страницу самой ткани.</li>
-                </ul>
-            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -782,6 +1005,176 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.remove('active');
         });
     });
+
+// Обработчик кликов по строкам в Топ 20
+document.addEventListener('click', function(event) {
+    const clickableRow = event.target.closest('.clickable-row');
+    if (clickableRow && clickableRow.dataset.href) {
+        window.location.href = clickableRow.dataset.href;
+    }
+});
+
+});
+
+// Инициализация графиков
+function initCharts() {
+    // 1. График заработка по неделям месяца
+    const weeklyRevenueCtx = document.getElementById('weeklyRevenueChart').getContext('2d');
+    new Chart(weeklyRevenueCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ week_labels|safe }},
+            datasets: [{
+                label: 'Заработок, ₸',
+                data: {{ weekly_revenue|safe }},
+                backgroundColor: 'rgba(40, 167, 69, 0.8)',
+                borderColor: '#28a745',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return new Intl.NumberFormat('ru-RU').format(value) + ' ₸';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. График топ 10 популярных тканей
+    const topFabricsCtx = document.getElementById('topFabricsChart').getContext('2d');
+    new Chart(topFabricsCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ fabric_names|safe }},
+            datasets: [{
+                label: 'Количество заказов',
+                data: {{ fabric_counts|safe }},
+                backgroundColor: [
+                    '#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1',
+                    '#fd7e14', '#20c997', '#6c757d', '#e83e8c', '#17a2b8'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+
+    // 3. График количества сделок по неделям месяца
+    const weeklyDealsCtx = document.getElementById('weeklyDealsChart').getContext('2d');
+    new Chart(weeklyDealsCtx, {
+        type: 'line',
+        data: {
+            labels: {{ week_labels|safe }},
+            datasets: [{
+                label: 'Количество сделок',
+                data: {{ weekly_deals|safe }},
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#007bff',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+
+    // 4. График среднего чека за месяц
+    const avgCheckCtx = document.getElementById('avgCheckChart').getContext('2d');
+    new Chart(avgCheckCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ week_labels|safe }},
+            datasets: [{
+                label: 'Средний чек, ₸',
+                data: {{ weekly_avg_check|safe }},
+                backgroundColor: [
+                    '#28a745', '#007bff', '#ffc107', '#dc3545', '#6f42c1'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + new Intl.NumberFormat('ru-RU').format(context.parsed) + ' ₸';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Запуск инициализации графиков после загрузки Chart.js
+document.addEventListener('DOMContentLoaded', function() {
+    // Проверяем загружен ли Chart.js, если нет - загружаем
+    if (typeof Chart === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        script.onload = function() {
+            initCharts();
+        };
+        document.head.appendChild(script);
+    } else {
+        initCharts();
+    }
 });
 
 </script>

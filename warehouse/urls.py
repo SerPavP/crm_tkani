@@ -11,6 +11,7 @@ urlpatterns = [
     path('print/<str:barcode>/', views.barcode_print, name='barcode_print'),
     path('print-pending/', views.print_pending_barcodes, name='print_pending_barcodes'),
     path('delete-roll/', views.delete_roll, name='delete_roll'),
+    path('deleted-history/', views.deleted_rolls_history, name='deleted_rolls_history'),
     path('api/fabric-colors/', views.get_fabric_colors_api, name='get_fabric_colors_api'),
     path('api/rolls-by-color/', views.get_rolls_by_color_api, name='get_rolls_by_color_api'),
     path('api/search-barcodes/', views.search_barcodes_api, name='search_barcodes_api'),
