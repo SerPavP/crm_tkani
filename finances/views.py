@@ -451,35 +451,33 @@ def financial_dashboard(request):
     today = date.today()
     month_start = today.replace(day=1)
     
-    # Вычисляем недели месяца
+    # Вычисляем периоды по 3 дня
     weekly_revenue = []
     weekly_deals = []
     weekly_avg_check = []
     week_labels = []
     
-    current_week_start = month_start
-    week_num = 1
+    current_period_start = month_start
     
-    while current_week_start <= today:
-        week_end = min(current_week_start + timedelta(days=6), today)
+    while current_period_start <= today:
+        period_end = min(current_period_start + timedelta(days=2), today)
         
-        week_deals_qs = Deal.objects.filter(
-            created_at__date__gte=current_week_start,
-            created_at__date__lte=week_end,
+        period_deals_qs = Deal.objects.filter(
+            created_at__date__gte=current_period_start,
+            created_at__date__lte=period_end,
             status='paid'
         )
         
-        week_revenue = calculate_revenue_for_deals(week_deals_qs)
-        week_deals_count = week_deals_qs.count()
-        week_avg = week_revenue / week_deals_count if week_deals_count > 0 else 0
+        period_revenue_value = calculate_revenue_for_deals(period_deals_qs)
+        period_deals_count = period_deals_qs.count()
+        period_avg = period_revenue_value / period_deals_count if period_deals_count > 0 else 0
         
-        weekly_revenue.append(float(week_revenue))
-        weekly_deals.append(week_deals_count)
-        weekly_avg_check.append(float(week_avg))
-        week_labels.append(f"Неделя {week_num}")
+        weekly_revenue.append(float(period_revenue_value))
+        weekly_deals.append(period_deals_count)
+        weekly_avg_check.append(float(period_avg))
+        week_labels.append(f"{current_period_start.strftime('%d.%m')}-{period_end.strftime('%d.%m')}")
         
-        current_week_start = week_end + timedelta(days=1)
-        week_num += 1
+        current_period_start = period_end + timedelta(days=1)
     
     # 2. Топ 10 популярных тканей
     top_fabrics_data = DealItem.objects.filter(deal__status='paid').values(

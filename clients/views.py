@@ -33,8 +33,8 @@ def client_list(request):
         return render(request, 'clients/client_list.html', context)
     except Exception as e:
         print(f"Ошибка в client_list: {e}")
-        messages.error(request, f'Произошла ошибка при загрузке списка клиентов: {str(e)}')
-        return render(request, 'clients/client_list.html', {'clients': [], 'search_query': search_query})
+        messages.error(request, f"Произошла ошибка при загрузке списка клиентов: {e}")
+        return render(request, 'clients/client_list.html', {'clients': [], 'search_query': ''})
 
 
 @login_required

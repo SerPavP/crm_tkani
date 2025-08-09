@@ -41,33 +41,401 @@
 }
 
 .nav-tabs .nav-link {
-    border: none;
-    color: #6c757d;
+    border: 2px solid #dee2e6;
+    color: #495057;
+    background-color: #ffffff;
+    margin: 0 0.25rem;
+    border-radius: 8px;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.nav-tabs .nav-link:hover:not(.active) {
+    border-color: #007bff;
+    color: #007bff;
+    background-color: #f8f9fa;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .nav-tabs .nav-link.active {
     background-color: #007bff;
     color: white;
-    border-radius: 5px;
+    border: 2px solid #007bff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+    transform: translateY(-2px);
 }
 
 /* Стили для мобильных устройств */
 @media (max-width: 768px) {
+    /* Основные навигационные табы */
     .nav-tabs .nav-link {
-        font-size: 1.1rem;
-        padding: 0.75rem 1rem;
-        margin: 0.25rem;
+        font-size: 1rem;
+        padding: 1rem 0.75rem;
+        margin: 0.25rem 0.1rem;
+        text-align: center;
+        min-height: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        border-radius: 12px !important;
+        border: 3px solid #dee2e6 !important;
+        background-color: #ffffff !important;
+        color: #495057 !important;
+        font-weight: 600 !important;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.15) !important;
+    }
+    
+    .nav-tabs .nav-link:hover:not(.active) {
+        border-color: #007bff !important;
+        color: #007bff !important;
+        background-color: #f8f9fa !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.2) !important;
     }
     
     .nav-tabs .nav-link.active {
-        font-weight: bold;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        font-weight: bold !important;
+        background-color: #007bff !important;
+        color: white !important;
+        border: 3px solid #007bff !important;
+        box-shadow: 0 6px 16px rgba(0,123,255,0.4) !important;
+        transform: translateY(-3px) scale(1.02) !important;
+    }
+    
+    .nav-tabs .nav-link i {
+        font-size: 1.3rem;
+        margin-bottom: 0.35rem;
+        display: block;
+    }
+    
+    /* KPI карточки */
+    .kpi-card {
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .kpi-card .card-title {
+        font-size: 0.85rem;
+    }
+    
+    .kpi-card h4 {
+        font-size: 1.1rem;
+    }
+    
+    /* Графики */
+    .row.mb-4 {
+        margin-bottom: 2rem !important;
+    }
+    
+    .card-header h6 {
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    
+    /* Кнопки переключения Топ 20 */
+    .btn-group .btn {
+        font-size: 0.85rem;
+        padding: 0.75rem 0.5rem;
+        flex-direction: column;
+        min-height: 60px;
+    }
+    
+    .btn-group .btn i {
+        font-size: 1.1rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    /* Таблицы */
+    .table {
+        font-size: 0.8rem;
+    }
+    
+    .table th, .table td {
+        padding: 0.5rem 0.25rem;
+        vertical-align: middle;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+    }
+    
+    /* Формы фильтров */
+    .form-control, .btn {
+        font-size: 0.9rem;
+    }
+    
+    .btn-group.btn-sm .btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    /* Периодные карточки */
+    .period-card {
+        margin-bottom: 1rem;
+        min-height: 80px;
+    }
+    
+    .period-card .card-body {
+        padding: 1rem 0.75rem;
+    }
+    
+    /* Скрытие элементов на мобильных */
+    .d-md-block {
+        display: none !important;
+    }
+    
+    /* Улучшение читаемости текста */
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    h5 {
+        font-size: 1.1rem;
+    }
+    
+    /* Отступы для контейнера */
+    .container-fluid {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+}
+
+/* Стили для очень маленьких экранов (телефоны) */
+@media (max-width: 576px) {
+    /* Заголовок страницы */
+    .d-flex.justify-content-between.align-items-center {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 1rem;
+    }
+    
+    .d-flex.justify-content-between.align-items-center h1 {
+        text-align: center;
+        font-size: 1.3rem;
+        margin-bottom: 0;
+    }
+    
+    .d-flex.justify-content-between.align-items-center > div {
+        text-align: center;
+    }
+    
+    /* Основные табы в одну колонку */
+    .nav-tabs {
+        flex-direction: column;
+        background-color: transparent;
+        border: none;
+        padding: 0;
+    }
+    
+    .nav-tabs .nav-item {
+        width: 100%;
+        margin-bottom: 0.75rem;
+    }
+    
+    .nav-tabs .nav-link {
+        width: 100%;
+        border-radius: 12px !important;
+        border: 4px solid #dee2e6 !important;
+        margin: 0 0 0.75rem 0 !important;
+        min-height: 80px !important;
+        font-size: 1.1rem !important;
+        padding: 1.25rem 1rem !important;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    }
+    
+    .nav-tabs .nav-link:hover:not(.active) {
+        border: 4px solid #007bff !important;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        transform: translateY(-3px) !important;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.25) !important;
+    }
+    
+    .nav-tabs .nav-link.active {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        border: 4px solid #0056b3 !important;
+        box-shadow: 0 8px 24px rgba(0,123,255,0.5) !important;
+        transform: translateY(-4px) scale(1.03) !important;
+    }
+    
+    .nav-tabs .nav-link i {
+        font-size: 1.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* KPI карточки в одну колонку */
+    .row .col-md-3 {
+        margin-bottom: 1rem;
+    }
+    
+    /* Графики */
+    .card-header h6 {
+        font-size: 0.8rem;
+        line-height: 1.2;
+    }
+    
+    /* Кнопки переключения периодов */
+    .btn-group {
+        flex-direction: column;
     }
     
     .btn-group .btn {
-        font-size: 0.9rem;
-        padding: 0.5rem 0.75rem;
+        border-radius: 6px !important;
+        margin-bottom: 0.25rem;
+        width: 100%;
     }
+    
+    /* Формы */
+    .row.g-3 > div {
+        margin-bottom: 1rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Таблицы - скролл по горизонтали */
+    .table-responsive {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .table {
+        min-width: 500px;
+        margin-bottom: 0;
+    }
+    
+    /* Кнопки действий в таблицах */
+    .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    /* Скрытие некоторых колонок в таблицах на очень маленьких экранах */
+    .table th:nth-child(n+4),
+    .table td:nth-child(n+4) {
+        display: none;
+    }
+    
+    /* Показываем только основные колонки */
+    .table th:nth-child(1),
+    .table th:nth-child(2),
+    .table th:nth-child(3),
+    .table td:nth-child(1),
+    .table td:nth-child(2),
+    .table td:nth-child(3) {
+        display: table-cell;
+    }
+}
+
+/* Стили для кнопок переключения Топ 20 */
+.btn-group .btn {
+    flex: 1;
+    font-weight: 500;
+    padding: 0.75rem 1rem;
+    border-radius: 0;
+}
+
+.btn-group .btn:first-child {
+    border-top-left-radius: 0.375rem;
+    border-bottom-left-radius: 0.375rem;
+}
+
+.btn-group .btn:last-child {
+    border-top-right-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+}
+
+.btn-group .btn.active {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.btn-group .btn:hover:not(.active) {
+    background-color: #f8f9fa;
+    border-color: #007bff;
+    color: #007bff;
+}
+
+/* Улучшение touch-интерфейса */
+@media (pointer: coarse) {
+    /* Увеличиваем размер кликабельных элементов для touch */
+    .btn, .nav-link, .clickable-row {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .period-card {
+        min-height: 100px;
+    }
+    
+    /* Улучшаем hover для touch-устройств */
+    .btn:active, .nav-link:active {
+        transform: scale(0.98);
+        transition: transform 0.1s ease;
+    }
+    
+    .period-card:active {
+        transform: scale(0.98);
+    }
+}
+
+/* Общие улучшения для мобильной навигации */
+.mobile-friendly {
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* Дополнительное выделение для лучшей видимости */
+.nav-tabs {
+    background-color: #f8f9fa;
+    padding: 0.75rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+}
+
+/* Анимация для привлечения внимания к табам */
+@keyframes subtle-pulse {
+    0% { box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    50% { box-shadow: 0 4px 8px rgba(0,123,255,0.2); }
+    100% { box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+}
+
+.nav-tabs .nav-link:not(.active):hover {
+    animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+/* Дополнительная визуальная индикация */
+.nav-tabs .nav-link::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #007bff, #0056b3, #007bff);
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.nav-tabs .nav-link.active::before {
+    opacity: 1;
 }
 </style>
 
@@ -231,7 +599,7 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-currency-exchange"></i> Заработок за этот месяц (по неделям)</h6>
+                <h6 class="mb-0"><i class="bi bi-currency-exchange"></i> Заработок за этот месяц (каждые 3 дня)</h6>
             </div>
             <div class="card-body">
                 <canvas id="weeklyRevenueChart" height="200"></canvas>
@@ -254,7 +622,7 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Количество сделок за месяц (по неделям)</h6>
+                <h6 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Количество сделок за месяц (каждые 3 дня)</h6>
             </div>
             <div class="card-body">
                 <canvas id="weeklyDealsChart" height="200"></canvas>
@@ -278,18 +646,18 @@
     <div class="card-header">
         <ul class="nav nav-tabs card-header-tabs" id="analyticsTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active btn-lg px-4 py-2 fw-bold" id="quick-tab" data-bs-toggle="tab" data-bs-target="#quick" type="button" role="tab">
+                <button class="nav-link active btn-lg px-4 py-2 fw-bold mobile-friendly" id="quick-tab" data-bs-toggle="tab" data-bs-target="#quick" type="button" role="tab">
                     <i class="bi bi-lightning"></i> Быстрая информация
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link btn-lg px-4 py-2 fw-bold" id="periods-tab" data-bs-toggle="tab" data-bs-target="#periods" type="button" role="tab">
+                <button class="nav-link btn-lg px-4 py-2 fw-bold mobile-friendly" id="periods-tab" data-bs-toggle="tab" data-bs-target="#periods" type="button" role="tab">
                     <i class="bi bi-calendar-range"></i> По периодам
                 </button>
             </li>
             {% if user.userprofile.role == 'admin' %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link btn-lg px-4 py-2 fw-bold" id="top20-tab" data-bs-toggle="tab" data-bs-target="#top20" type="button" role="tab">
+                <button class="nav-link btn-lg px-4 py-2 fw-bold mobile-friendly" id="top20-tab" data-bs-toggle="tab" data-bs-target="#top20" type="button" role="tab">
                     <i class="bi bi-trophy"></i> Топ 20
                 </button>
             </li>
@@ -303,7 +671,7 @@
                 <!-- Интерактивные карточки периодов -->
                 <div class="row mb-4">
                     <div class="col-md-3">
-                        <div class="card period-card" onclick="showPeriodDetails('today')">
+                        <div class="card period-card mobile-friendly" onclick="showPeriodDetails('today')">
                             <div class="card-body text-center">
                                 <h5>Сегодня</h5>
                                 <h3 class="text-primary">{{ today_revenue|format_price }} ₸</h3>
@@ -312,7 +680,7 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card period-card" onclick="showPeriodDetails('week')">
+                        <div class="card period-card mobile-friendly" onclick="showPeriodDetails('week')">
                             <div class="card-body text-center">
                                 <h5>Неделя</h5>
                                 <h3 class="text-success">{{ week_revenue|format_price }} ₸</h3>
@@ -321,7 +689,7 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card period-card" onclick="showPeriodDetails('month')">
+                        <div class="card period-card mobile-friendly" onclick="showPeriodDetails('month')">
                             <div class="card-body text-center">
                                 <h5>Месяц</h5>
                                 <h3 class="text-info">{{ month_revenue|format_price }} ₸</h3>
@@ -330,7 +698,7 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card period-card" onclick="showPeriodDetails('quarter')">
+                        <div class="card period-card mobile-friendly" onclick="showPeriodDetails('quarter')">
                             <div class="card-body text-center">
                                 <h5>Квартал</h5>
                                 <h3 class="text-warning">{{ quarter_revenue|format_price }} ₸</h3>
@@ -353,7 +721,7 @@
                                     <div class="col-12 mb-3">
                                         <h5 class="text-success">{{ current_period_profit|format_price }} ₸</h5>
                                         <small class="text-muted">Общая прибыль (30 дней)</small>
-                                    </div>
+                                        </div>
                                     <div class="col-6">
                                         <h6 class="text-info">{{ current_period_margin|floatformat:1 }}%</h6>
                                         <small class="text-muted">Рентабельность</small>
@@ -361,11 +729,11 @@
                                     <div class="col-6">
                                         <h6 class="text-warning">{{ current_period_avg_check|format_price }} ₸</h6>
                                         <small class="text-muted">Средний чек</small>
+                                        </div>
+                                    </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- Складские показатели -->
                     <div class="col-md-4">
@@ -406,7 +774,7 @@
                                             {{ revenue_trend|floatformat:1 }}%
                                         </span>
                                         <br><small class="text-muted">Выручка</small>
-                                    </div>
+                                        </div>
                                     <div class="col-6 mb-2">
                                         <span class="{% if profit_trend >= 0 %}text-success{% else %}text-danger{% endif %}">
                                             <i class="bi {% if profit_trend >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
@@ -420,7 +788,7 @@
                                             {{ deals_count_trend|floatformat:1 }}%
                                         </span>
                                         <br><small class="text-muted">Количество сделок</small>
-                                    </div>
+                                        </div>
                                     <div class="col-6">
                                         <span class="{% if avg_check_trend >= 0 %}text-success{% else %}text-danger{% endif %}">
                                             <i class="bi {% if avg_check_trend >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
@@ -428,11 +796,11 @@
                                         </span>
                                         <br><small class="text-muted">Средний чек</small>
                                     </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
                 <!-- Дополнительная статистика -->
                 <div class="row mt-4">
@@ -440,7 +808,7 @@
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="mb-0"><i class="bi bi-calendar-check"></i> Общая статистика</h6>
-                            </div>
+                    </div>
                             <div class="card-body">
                                 <div class="row text-center">
                                     <div class="col-4">
@@ -595,9 +963,23 @@
             <!-- Топ 20 -->
             {% if user.userprofile.role == 'admin' %}
             <div class="tab-pane fade" id="top20" role="tabpanel">
-                <div class="row">
-                    <!-- Топ 20 клиентов -->
-                    <div class="col-md-6">
+                <!-- Переключатель между клиентами и тканями -->
+                <div class="card mb-4">
+    <div class="card-header">
+                        <div class="btn-group w-100" role="group" aria-label="Top 20 sections">
+                            <button type="button" class="btn btn-outline-primary active mobile-friendly" id="clientsTab" onclick="showTop20Tab('clients')">
+                                <i class="bi bi-people"></i> Топ 20 клиентов
+                            </button>
+                            <button type="button" class="btn btn-outline-primary mobile-friendly" id="fabricsTab" onclick="showTop20Tab('fabrics')">
+                                <i class="bi bi-palette"></i> Топ 20 тканей
+                            </button>
+    </div>
+                    </div>
+                </div>
+
+                <!-- Контент клиентов -->
+                <div id="clientsContent" class="row">
+                    <div class="col-md-12">
                         <div class="card">
                             <div class="card-header">
                                 <ul class="nav nav-tabs card-header-tabs" role="tablist">
@@ -610,8 +992,8 @@
                                     <li class="nav-item">
                                         <a class="nav-link" data-bs-toggle="tab" href="#top20-clients-profit">По выручке</a>
                                     </li>
-                                </ul>
-                            </div>
+                </ul>
+            </div>
                             <div class="card-body">
                                 <div class="tab-content">
                                     <!-- По выручке -->
@@ -722,9 +1104,11 @@
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Топ 20 тканей -->
-                    <div class="col-md-6">
+                <!-- Контент тканей (скрыт по умолчанию) -->
+                <div id="fabricsContent" class="row" style="display: none;">
+                    <div class="col-md-12">
                         <div class="card">
                             <div class="card-header">
                                 <ul class="nav nav-tabs card-header-tabs" role="tablist">
@@ -737,8 +1121,8 @@
                                     <li class="nav-item">
                                         <a class="nav-link" data-bs-toggle="tab" href="#top20-fabrics-profit">По выручке</a>
                                     </li>
-                                </ul>
-                            </div>
+                </ul>
+            </div>
                             <div class="card-body">
                                 <div class="tab-content">
                                     <!-- По количеству заказов -->
@@ -1160,6 +1544,32 @@ function initCharts() {
             }
         }
     });
+}
+
+// Функция переключения между клиентами и тканями в Топ 20
+function showTop20Tab(tabName) {
+    const clientsContent = document.getElementById('clientsContent');
+    const fabricsContent = document.getElementById('fabricsContent');
+    const clientsTab = document.getElementById('clientsTab');
+    const fabricsTab = document.getElementById('fabricsTab');
+
+    if (tabName === 'clients') {
+        // Показать клиентов
+        clientsContent.style.display = 'block';
+        fabricsContent.style.display = 'none';
+        
+        // Переключить активные кнопки
+        clientsTab.classList.add('active');
+        fabricsTab.classList.remove('active');
+    } else if (tabName === 'fabrics') {
+        // Показать ткани
+        clientsContent.style.display = 'none';
+        fabricsContent.style.display = 'block';
+        
+        // Переключить активные кнопки
+        clientsTab.classList.remove('active');
+        fabricsTab.classList.add('active');
+    }
 }
 
 // Запуск инициализации графиков после загрузки Chart.js
