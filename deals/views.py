@@ -477,15 +477,20 @@ def get_fabric_colors(request):
         colors_data = []
         for color in colors:
             price = color.fabric.selling_price or color.fabric.cost_price or 0
-            colors_data.append({
+            color_data = {
                 'id': color.id,
                 'name': color.color_name,
                 'number': '',
                 'price_per_meter': float(price),
-                'cost_price': float(color.fabric.cost_price or 0),
                 'selling_price': float(color.fabric.selling_price or color.fabric.cost_price or 0),
                 'active_rolls_count': color.active_rolls_count, # Добавляем количество рулонов
-            })
+            }
+            
+            # Возвращаем себестоимость только для администраторов
+            if request.user.userprofile.role == 'admin':
+                color_data['cost_price'] = float(color.fabric.cost_price or 0)
+            
+            colors_data.append(color_data)
         
         return JsonResponse({'colors': colors_data})
     except Exception as e:
@@ -519,9 +524,13 @@ def get_fabric_color_details(request):
     try:
         fabric_color = FabricColor.objects.get(id=color_id)
         data = {
-            'cost_price': str(fabric_color.fabric.cost_price), # Convert Decimal to string
             'active_rolls_count': fabric_color.active_rolls_count,
         }
+        
+        # Возвращаем себестоимость только для администраторов
+        if request.user.userprofile.role == 'admin':
+            data['cost_price'] = str(fabric_color.fabric.cost_price)
+        
         return JsonResponse(data)
     except FabricColor.DoesNotExist:
         return JsonResponse({'error': 'Fabric color not found'}, status=404)

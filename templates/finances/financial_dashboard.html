@@ -16,6 +16,70 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
+/* Улучшение отображения больших чисел на мобильных устройствах */
+.kpi-card h4 {
+    font-size: 1.5rem;
+    font-weight: bold;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    line-height: 1.2;
+}
+
+/* Для очень больших чисел */
+@media (max-width: 768px) {
+    .kpi-card h4 {
+        font-size: 1.2rem;
+        line-height: 1.1;
+    }
+    
+    .kpi-card h6 {
+        font-size: 0.9rem;
+    }
+    
+    .kpi-card small {
+        font-size: 0.75rem;
+    }
+}
+
+/* Для iPhone и других мобильных устройств */
+@media (max-width: 480px) {
+    .kpi-card h4 {
+        font-size: 1rem;
+        line-height: 1.1;
+    }
+    
+    .kpi-card .card-body {
+        padding: 0.75rem;
+    }
+    
+    .kpi-card .display-6 {
+        font-size: 2rem;
+    }
+}
+
+/* Специально для больших чисел (миллиарды) */
+.kpi-card h4.large-number,
+.period-card h3.large-number {
+    font-size: 1.1rem;
+    line-height: 1.1;
+    word-break: break-all;
+}
+
+@media (max-width: 768px) {
+    .kpi-card h4.large-number,
+    .period-card h3.large-number {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .kpi-card h4.large-number,
+    .period-card h3.large-number {
+        font-size: 0.8rem;
+    }
+}
+
 .period-card {
     cursor: pointer;
     transition: all 0.3s ease;
@@ -465,7 +529,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="card-title">Общая продажа</h6>
-                        <h4 class="mb-0">{{ current_period_revenue|format_price }} ₸</h4>
+                        <h4 class="mb-0 large-number">{{ current_period_revenue|format_price }} ₸</h4>
                         <small class="trend-up">
                             {% if revenue_trend > 0 %}↑{% else %}↓{% endif %} 
                             {% if revenue_trend < 0 %}{{ revenue_trend|mul:-1|floatformat:2 }}{% else %}{{ revenue_trend|floatformat:2 }}{% endif %}% к пред. пер.
@@ -484,7 +548,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="card-title">Общая выручка</h6>
-                        <h4 class="mb-0">{{ current_period_profit|format_price }} ₸</h4>
+                        <h4 class="mb-0 large-number">{{ current_period_profit|format_price }} ₸</h4>
                         <small class="trend-up">
                             {% if profit_trend > 0 %}↑{% else %}↓{% endif %} 
                             {% if profit_trend < 0 %}{{ profit_trend|mul:-1|floatformat:2 }}{% else %}{{ profit_trend|floatformat:2 }}{% endif %}% к пред. пер.
@@ -522,7 +586,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="card-title">Средний чек</h6>
-                        <h4 class="mb-0">{{ current_period_avg_check|format_price }} ₸</h4>
+                        <h4 class="mb-0 large-number">{{ current_period_avg_check|format_price }} ₸</h4>
                         <small class="trend-up">
                             {% if avg_check_trend > 0 %}↑{% else %}↓{% endif %} 
                             {% if avg_check_trend < 0 %}{{ avg_check_trend|mul:-1|floatformat:2 }}{% else %}{{ avg_check_trend|floatformat:2 }}{% endif %}% к пред. пер.
@@ -674,7 +738,7 @@
                         <div class="card period-card mobile-friendly" onclick="showPeriodDetails('today')">
                             <div class="card-body text-center">
                                 <h5>Сегодня</h5>
-                                <h3 class="text-primary">{{ today_revenue|format_price }} ₸</h3>
+                                <h3 class="text-primary large-number">{{ today_revenue|format_price }} ₸</h3>
                                 <p class="text-muted">{{ today_deals_count }} сделок</p>
                             </div>
                         </div>
@@ -683,7 +747,7 @@
                         <div class="card period-card mobile-friendly" onclick="showPeriodDetails('week')">
                             <div class="card-body text-center">
                                 <h5>Неделя</h5>
-                                <h3 class="text-success">{{ week_revenue|format_price }} ₸</h3>
+                                <h3 class="text-success large-number">{{ week_revenue|format_price }} ₸</h3>
                                 <p class="text-muted">{{ week_deals_count }} сделок</p>
                             </div>
                         </div>
@@ -692,7 +756,7 @@
                         <div class="card period-card mobile-friendly" onclick="showPeriodDetails('month')">
                             <div class="card-body text-center">
                                 <h5>Месяц</h5>
-                                <h3 class="text-info">{{ month_revenue|format_price }} ₸</h3>
+                                <h3 class="text-info large-number">{{ month_revenue|format_price }} ₸</h3>
                                 <p class="text-muted">{{ month_deals_count }} сделок</p>
                             </div>
                         </div>
@@ -701,7 +765,7 @@
                         <div class="card period-card mobile-friendly" onclick="showPeriodDetails('quarter')">
                             <div class="card-body text-center">
                                 <h5>Квартал</h5>
-                                <h3 class="text-warning">{{ quarter_revenue|format_price }} ₸</h3>
+                                <h3 class="text-warning large-number">{{ quarter_revenue|format_price }} ₸</h3>
                                 <p class="text-muted">{{ quarter_deals_count }} сделок</p>
                             </div>
                         </div>
