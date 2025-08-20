@@ -282,12 +282,14 @@ def scan_barcode(request):
     """Сканирование штрих-кода для списания"""
     from fabrics.models import Fabric
     fabrics = Fabric.objects.all().order_by('name')
+    form = ScanBarcodeForm()  # Инициализируем форму по умолчанию
+
     if request.method == 'POST':
         action = request.POST.get('action', 'scan')
         
         if action == 'scan':
             # Первый шаг - поиск рулона
-            form = ScanBarcodeForm(request.POST)
+            form = ScanBarcodeForm(request.POST)  # Перезаписываем форму данными из запроса
             if form.is_valid():
                 barcode = form.cleaned_data['barcode']
 
@@ -333,7 +335,8 @@ def scan_barcode(request):
             except FabricRoll.DoesNotExist:
                 messages.error(request, 'Рулон с таким штрих-кодом не найден или уже списан.')
     else:
-        form = ScanBarcodeForm()
+        # Для GET-запросов форма уже инициализирована в начале
+        pass
 
     # Поддержка автозаполнения штрих-кода через GET
     barcode_prefill = request.GET.get('barcode', '')
