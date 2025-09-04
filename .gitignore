@@ -6,6 +6,7 @@ media/
 .env
 venv/
 env/
+db.sqlite3
 
 # Logs
 *.log
@@ -23,3 +24,4 @@ staticfiles/
 
 # Sock files
 *.sock
+db.sqlite3
