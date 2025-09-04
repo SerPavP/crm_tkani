@@ -101,7 +101,7 @@
                                 <td class="text-center">
                                     <div class="btn-group" role="group">
                                         <button type="button" class="btn btn-sm btn-outline-warning" 
-                                                onclick="editFabric({{ fabric.id }}, '{{ fabric.name }}', '{{ fabric.cost_price }}', '{{ fabric.selling_price }}')"
+                                                onclick="editFabric({{ fabric.id }}, '{{ fabric.name }}', '{% if fabric.cost_price %}{{ fabric.cost_price }}{% endif %}', '{% if fabric.selling_price %}{{ fabric.selling_price }}{% endif %}')"
                                                 title="Редактировать цену">
                                             <i class="bi bi-pencil"></i>
                                         </button>
@@ -137,8 +137,20 @@
 function editFabric(fabricId, fabricName, costPrice, sellingPrice) {
     document.getElementById('editFabricId').value = fabricId;
     document.getElementById('editFabricName').value = fabricName;
-    document.getElementById('editCostPrice').value = costPrice || '';
-    document.getElementById('editSellingPrice').value = sellingPrice || '';
+    
+    // Заполняем поля текущими значениями, если они есть
+    const costPriceField = document.getElementById('editCostPrice');
+    const sellingPriceField = document.getElementById('editSellingPrice');
+    
+    costPriceField.value = costPrice && costPrice !== 'None' && costPrice !== '' ? costPrice : '';
+    sellingPriceField.value = sellingPrice && sellingPrice !== 'None' && sellingPrice !== '' ? sellingPrice : '';
+    
+    // Устанавливаем focus на первое пустое поле
+    if (!costPriceField.value) {
+        setTimeout(() => costPriceField.focus(), 500);
+    } else if (!sellingPriceField.value) {
+        setTimeout(() => sellingPriceField.focus(), 500);
+    }
     
     const modal = new bootstrap.Modal(document.getElementById('editFabricModal'));
     modal.show();

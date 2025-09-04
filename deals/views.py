@@ -113,14 +113,11 @@ def deal_detail(request, deal_id):
     deal_items = deal.dealitem_set.all()
     fabrics = Fabric.objects.all().order_by('name')
     
-    # Рассчитываем прибыль компании
+    # Рассчитываем прибыль компании (используем фиксированную себестоимость)
     total_profit = 0
     for item in deal_items:
-        if item.fabric_color and item.fabric_color.fabric.cost_price:
-            # Прибыль = (Цена продажи - Себестоимость) * Количество метров
-            profit_per_meter = item.price_per_meter - item.fabric_color.fabric.cost_price
-            item_profit = profit_per_meter * item.width_meters
-            total_profit += item_profit
+        # Используем свойство item_profit, которое автоматически использует фиксированную себестоимость
+        total_profit += item.item_profit
     
     # Скрываем прибыль для бухгалтеров
     if request.user.userprofile.role == 'accountant':
