@@ -1,29 +1,42 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Sum, F, Count, Max
+from django.db.models import Sum, F, Count, Max, Q, Case, When
+from django.db import models
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.models import User
 from deals.models import Deal, DealItem
 from fabrics.models import Fabric, FabricColor, FabricRoll
+from clients.models import Client
 from .models import SystemSettings
 from .forms import SystemSettingsForm
-from datetime import date, timedelta, datetime
+from datetime import timedelta, datetime
+from django.utils import timezone
+from django.core.cache import cache
 from decimal import Decimal
 import calendar
 
 
 @login_required
 def financial_dashboard(request):
-    """Финансовая аналитика и отчеты"""
+    """Финансовая аналитика и отчеты (оптимизированная версия)"""
     if not hasattr(request.user, 'userprofile') or not request.user.userprofile.can_view_financial_analytics:
         messages.error(request, 'У вас нет прав для просмотра финансовой аналитики.')
         return redirect('core:home')
 
+    # Кеширование дорогих вычислений на 5 минут
+    cache_key = f"financial_dashboard_data:{request.user.id}"
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        return render(request, 'finances/financial_dashboard.html', cached_data)
+
+    today = timezone.localdate()
+    
     # Получаем параметры периода
-    date_from = request.GET.get('date_from', (date.today() - timedelta(days=30)).strftime('%Y-%m-%d'))
-    date_to = request.GET.get('date_to', date.today().strftime('%Y-%m-%d'))
+    date_from = request.GET.get('date_from', (today - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.GET.get('date_to', today.strftime('%Y-%m-%d'))
     
     # Конвертируем в объекты date
     if isinstance(date_from, str):
@@ -31,269 +44,375 @@ def financial_dashboard(request):
     if isinstance(date_to, str):
         date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
     
-    # Текущий период (последние 30 дней)
-    current_period_start = date.today() - timedelta(days=30)
-    current_period_end = date.today()
-    
-    # Предыдущий период (30 дней до текущего)
+    # Определяем периоды
+    current_period_start = today - timedelta(days=30)
+    current_period_end = today
     previous_period_start = current_period_start - timedelta(days=30)
     previous_period_end = current_period_start - timedelta(days=1)
     
-    # Функция для расчета прибыли по сделкам
-    def calculate_profit_for_deals(deals):
-        total_profit = Decimal('0')
-        for deal in deals:
-            total_profit += deal.total_profit
-        return total_profit
+    week_start = today - timedelta(days=6)
+    month_start = today - timedelta(days=29)
+    quarter_start = today - timedelta(days=89)
+
+    # ОПТИМИЗИРОВАННЫЙ ЗАПРОС: Получаем все необходимые данные одним запросом
+    all_deals = Deal.objects.filter(status='paid').prefetch_related('dealitem_set__fabric_color__fabric')
     
-    # Функция для расчета выручки по сделкам
-    def calculate_revenue_for_deals(deals):
-        return deals.aggregate(Sum('total_amount'))['total_amount__sum'] or Decimal('0')
-    
-    # Текущий период
-    current_period_deals = Deal.objects.filter(
-        created_at__date__gte=current_period_start,
-        created_at__date__lte=current_period_end,
-        status='paid'
+    # Агрегированные данные по периодам одним запросом
+    period_stats = all_deals.aggregate(
+        # Текущий период
+        current_revenue=Sum(
+            Case(
+                When(Q(created_at__date__gte=current_period_start) & Q(created_at__date__lte=current_period_end), 
+                     then='total_amount'),
+                default=0,
+                output_field=models.DecimalField()
+            )
+        ),
+        current_count=Count(
+            Case(
+                When(Q(created_at__date__gte=current_period_start) & Q(created_at__date__lte=current_period_end), 
+                     then='id'),
+                output_field=models.IntegerField()
+            )
+        ),
+        # Предыдущий период
+        previous_revenue=Sum(
+            Case(
+                When(Q(created_at__date__gte=previous_period_start) & Q(created_at__date__lte=previous_period_end), 
+                     then='total_amount'),
+                default=0,
+                output_field=models.DecimalField()
+            )
+        ),
+        previous_count=Count(
+            Case(
+                When(Q(created_at__date__gte=previous_period_start) & Q(created_at__date__lte=previous_period_end), 
+                     then='id'),
+                output_field=models.IntegerField()
+            )
+        ),
+        # Быстрые периоды
+        today_revenue=Sum(
+            Case(
+                When(created_at__date=today, then='total_amount'),
+                default=0,
+                output_field=models.DecimalField()
+            )
+        ),
+        today_count=Count(
+            Case(
+                When(created_at__date=today, then='id'),
+                output_field=models.IntegerField()
+            )
+        ),
+        week_revenue=Sum(
+            Case(
+                When(Q(created_at__date__gte=week_start) & Q(created_at__date__lte=today), 
+                     then='total_amount'),
+                default=0,
+                output_field=models.DecimalField()
+            )
+        ),
+        week_count=Count(
+            Case(
+                When(Q(created_at__date__gte=week_start) & Q(created_at__date__lte=today), 
+                     then='id'),
+                output_field=models.IntegerField()
+            )
+        ),
+        month_revenue=Sum(
+            Case(
+                When(Q(created_at__date__gte=month_start) & Q(created_at__date__lte=today), 
+                     then='total_amount'),
+                default=0,
+                output_field=models.DecimalField()
+            )
+        ),
+        month_count=Count(
+            Case(
+                When(Q(created_at__date__gte=month_start) & Q(created_at__date__lte=today), 
+                     then='id'),
+                output_field=models.IntegerField()
+            )
+        ),
+        quarter_revenue=Sum(
+            Case(
+                When(Q(created_at__date__gte=quarter_start) & Q(created_at__date__lte=today), 
+                     then='total_amount'),
+                default=0,
+                output_field=models.DecimalField()
+            )
+        ),
+        quarter_count=Count(
+            Case(
+                When(Q(created_at__date__gte=quarter_start) & Q(created_at__date__lte=today), 
+                     then='id'),
+                output_field=models.IntegerField()
+            )
+        )
     )
-    current_period_revenue = calculate_revenue_for_deals(current_period_deals)
-    current_period_profit = calculate_profit_for_deals(current_period_deals)
+    
+    # Извлекаем значения с нулевыми значениями по умолчанию
+    current_period_revenue = period_stats['current_revenue'] or Decimal('0')
+    current_period_deals_count = period_stats['current_count'] or 0
+    previous_period_revenue = period_stats['previous_revenue'] or Decimal('0')
+    previous_period_deals_count = period_stats['previous_count'] or 0
+    
+    today_revenue = period_stats['today_revenue'] or Decimal('0')
+    today_deals_count = period_stats['today_count'] or 0
+    week_revenue = period_stats['week_revenue'] or Decimal('0')
+    week_deals_count = period_stats['week_count'] or 0
+    month_revenue = period_stats['month_revenue'] or Decimal('0')
+    month_deals_count = period_stats['month_count'] or 0
+    quarter_revenue = period_stats['quarter_revenue'] or Decimal('0')
+    quarter_deals_count = period_stats['quarter_count'] or 0
+
+    # Быстрое вычисление прибыли (оптимизированное)
+    def calculate_profit_optimized(deal_filter_q):
+        return DealItem.objects.filter(
+            deal__status='paid'
+        ).filter(deal_filter_q).aggregate(
+            profit=Sum(
+                F('total_price') - F('width_meters') * Case(
+                    When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
+                    default=F('fabric_color__fabric__cost_price'),
+                    output_field=models.DecimalField()
+                ),
+                output_field=models.DecimalField()
+            )
+        )['profit'] or Decimal('0')
+    
+    current_period_profit = calculate_profit_optimized(
+        Q(deal__created_at__date__gte=current_period_start) & 
+        Q(deal__created_at__date__lte=current_period_end)
+    )
+    previous_period_profit = calculate_profit_optimized(
+        Q(deal__created_at__date__gte=previous_period_start) & 
+        Q(deal__created_at__date__lte=previous_period_end)
+    )
+    
+    # Расчеты метрик
     current_period_margin = (current_period_profit / current_period_revenue * 100) if current_period_revenue > 0 else 0
-    current_period_deals_count = current_period_deals.count()
     current_period_avg_check = current_period_revenue / current_period_deals_count if current_period_deals_count > 0 else 0
-    current_period_clients_count = current_period_deals.values('client').distinct().count()
-    
-    # Предыдущий период
-    previous_period_deals = Deal.objects.filter(
-        created_at__date__gte=previous_period_start,
-        created_at__date__lte=previous_period_end,
-        status='paid'
-    )
-    previous_period_revenue = calculate_revenue_for_deals(previous_period_deals)
-    previous_period_profit = calculate_profit_for_deals(previous_period_deals)
     previous_period_margin = (previous_period_profit / previous_period_revenue * 100) if previous_period_revenue > 0 else 0
-    previous_period_deals_count = previous_period_deals.count()
     previous_period_avg_check = previous_period_revenue / previous_period_deals_count if previous_period_deals_count > 0 else 0
-    previous_period_clients_count = previous_period_deals.values('client').distinct().count()
     
-    # Расчет трендов
+    # Тренды
     revenue_trend = ((current_period_revenue - previous_period_revenue) / previous_period_revenue * 100) if previous_period_revenue > 0 else 0
     profit_trend = ((current_period_profit - previous_period_profit) / previous_period_profit * 100) if previous_period_profit > 0 else 0
     margin_trend = current_period_margin - previous_period_margin
     avg_check_trend = ((current_period_avg_check - previous_period_avg_check) / previous_period_avg_check * 100) if previous_period_avg_check > 0 else 0
     deals_count_trend = current_period_deals_count - previous_period_deals_count
-    clients_count_trend = current_period_clients_count - previous_period_clients_count
     
-    # Данные о рулонах за текущий период
-    current_period_rolls = FabricRoll.objects.filter(
-        created_at__date__gte=current_period_start,
-        created_at__date__lte=current_period_end
+    # Рулоны (быстрый запрос)
+    rolls_stats = FabricRoll.objects.aggregate(
+        current_rolls=Count(
+            Case(
+                When(Q(created_at__date__gte=current_period_start) & Q(created_at__date__lte=current_period_end), 
+                     then='id'),
+                output_field=models.IntegerField()
+            )
+        ),
+        previous_rolls=Count(
+            Case(
+                When(Q(created_at__date__gte=previous_period_start) & Q(created_at__date__lte=previous_period_end), 
+                     then='id'),
+                output_field=models.IntegerField()
+            )
+        )
     )
-    current_period_rolls_count = current_period_rolls.count()
     
-    # Данные о рулонах за предыдущий период
-    previous_period_rolls = FabricRoll.objects.filter(
-        created_at__date__gte=previous_period_start,
-        created_at__date__lte=previous_period_end
-    )
-    previous_period_rolls_count = previous_period_rolls.count()
-    
-    # Тренд рулонов
+    current_period_rolls_count = rolls_stats['current_rolls'] or 0
+    previous_period_rolls_count = rolls_stats['previous_rolls'] or 0
     rolls_count_trend = current_period_rolls_count - previous_period_rolls_count
     
-    # Быстрые периоды
-    today_deals = Deal.objects.filter(created_at__date=date.today(), status='paid')
-    today_revenue = calculate_revenue_for_deals(today_deals)
-    today_deals_count = today_deals.count()
-    
-    # Добавляем отладочную информацию
-    print(f"DEBUG: Сегодня ({date.today()}): {today_deals_count} сделок, выручка: {today_revenue}")
-    all_today_deals = Deal.objects.filter(created_at__date=date.today())
-    print(f"DEBUG: Всего сделок сегодня (любой статус): {all_today_deals.count()}")
-    
-    week_start = date.today() - timedelta(days=7)
-    week_deals = Deal.objects.filter(created_at__date__gte=week_start, created_at__date__lte=date.today(), status='paid')
-    week_revenue = calculate_revenue_for_deals(week_deals)
-    week_deals_count = week_deals.count()
-    
-    print(f"DEBUG: За неделю ({week_start} - {date.today()}): {week_deals_count} сделок, выручка: {week_revenue}")
-    
-    month_start = date.today() - timedelta(days=30)
-    month_deals = Deal.objects.filter(created_at__date__gte=month_start, created_at__date__lte=date.today(), status='paid')
-    month_revenue = calculate_revenue_for_deals(month_deals)
-    month_deals_count = month_deals.count()
-    
-    quarter_start = date.today() - timedelta(days=90)
-    quarter_deals = Deal.objects.filter(created_at__date__gte=quarter_start, created_at__date__lte=date.today(), status='paid')
-    quarter_revenue = calculate_revenue_for_deals(quarter_deals)
-    quarter_deals_count = quarter_deals.count()
-    
-    # Топ-ткань месяца
+    # Топ-ткань месяца (быстрый запрос)
     top_fabric_month = Fabric.objects.annotate(
         revenue=Sum('fabriccolor__dealitem__total_price')
     ).filter(
         fabriccolor__dealitem__deal__created_at__date__gte=month_start,
-        fabriccolor__dealitem__deal__created_at__date__lte=date.today(),
+        fabriccolor__dealitem__deal__created_at__date__lte=today,
         fabriccolor__dealitem__deal__status='paid'
     ).order_by('-revenue').first()
     
     if not top_fabric_month or not top_fabric_month.revenue:
         top_fabric_month = type('obj', (object,), {'name': 'Нет данных', 'revenue': 0})()
     
-    # Оборачиваемость (среднее количество дней между сделками)
-    all_deals = Deal.objects.filter(status='paid').order_by('created_at')
-    if all_deals.count() > 1:
-        first_deal = all_deals.first()
-        last_deal = all_deals.last()
-        total_days = (last_deal.created_at.date() - first_deal.created_at.date()).days
-        # Среднее количество дней между сделками
-        turnover_days = total_days / (all_deals.count() - 1) if all_deals.count() > 1 else 0
+    # Оборачиваемость (упрощенный расчет)
+    all_deals_count = all_deals.count()
+    if all_deals_count > 1:
+        first_deal = all_deals.order_by('created_at').first()
+        last_deal = all_deals.order_by('-created_at').first()
+        if first_deal and last_deal:
+            total_days = (last_deal.created_at.date() - first_deal.created_at.date()).days
+            turnover_days = total_days / (all_deals_count - 1) if all_deals_count > 1 else 0
+        else:
+            turnover_days = 0
     else:
         turnover_days = 0
+
+    # ОПТИМИЗИРОВАННЫЕ ТОП-СПИСКИ (объединенные запросы)
     
-    # Топ-5 клиентов по прибыли
-    top_clients_by_profit = []
-    clients_profit = Deal.objects.filter(status='paid').values('client__nickname', 'client__id').annotate(
-        total_amount=Sum('total_amount')
-    ).order_by('-total_amount')[:5]
-    
-    total_profit_all = calculate_profit_for_deals(Deal.objects.filter(status='paid'))
-    
-    for client_data in clients_profit:
-        client_id = client_data.get('client__id')
-        if client_id is None:
-            # Пропускаем, если client_id равен None
-            continue
-        
-        # Получаем все сделки клиента для расчета прибыли
-        client_deals = Deal.objects.filter(
-            status='paid',
-            client__id=client_id
-        )
-        client_total_profit = calculate_profit_for_deals(client_deals)
-        profit_percentage = (client_total_profit / total_profit_all * 100) if total_profit_all > 0 else 0
-        top_clients_by_profit.append({
-            'nickname': client_data['client__nickname'],
-            'id': client_id,
-            'total_profit': client_total_profit,
-            'profit_percentage': profit_percentage
-        })
-    
-    # Сортируем по прибыли
-    top_clients_by_profit.sort(key=lambda x: x['total_profit'], reverse=True)
-    top_clients_by_profit = top_clients_by_profit[:5]
-    
-    # Топ-5 клиентов по количеству сделок
-    top_clients_by_count = []
-    clients_count = Deal.objects.filter(status='paid').values('client__nickname', 'client__id').annotate(
+    # Топ-5 клиентов (все в одном запросе)
+    top_clients_data = Deal.objects.filter(status='paid').values(
+        'client__id', 'client__nickname'
+    ).annotate(
+        total_revenue=Sum('total_amount'),
         deals_count=Count('id'),
-        total_sum=Sum('total_amount')
-    ).order_by('-deals_count')[:5]
+        last_purchase=Max('created_at')
+    ).order_by('-total_revenue')[:5]
     
-    for client_data in clients_count:
-        client_id = client_data.get('client__id')
-        if client_id is None:
-            # Пропускаем, если client_id равен None
+    top_clients_by_profit = []
+    top_clients_by_count = []
+    top_clients_by_sum = []
+    
+    for client_data in top_clients_data:
+        if client_data['client__id'] is None:
             continue
             
-        avg_check = client_data['total_sum'] / client_data['deals_count'] if client_data['deals_count'] > 0 else 0
+        # Для топ по сумме
+        top_clients_by_sum.append({
+            'nickname': client_data['client__nickname'],
+            'id': client_data['client__id'],
+            'total_sum': client_data['total_revenue'],
+            'last_purchase': client_data['last_purchase']
+        })
+        
+        # Для топ по количеству
+        avg_check = client_data['total_revenue'] / client_data['deals_count'] if client_data['deals_count'] > 0 else 0
         top_clients_by_count.append({
             'nickname': client_data['client__nickname'],
-            'id': client_id,
+            'id': client_data['client__id'],
             'deals_count': client_data['deals_count'],
             'avg_check': avg_check
         })
     
-    # Топ-5 клиентов по общей сумме
-    top_clients_by_sum = []
-    clients_sum = Deal.objects.filter(status='paid').values('client__nickname', 'client__id').annotate(
-        total_sum=Sum('total_amount'),
-        last_purchase=Max('created_at')
-    ).order_by('-total_sum')[:5]
+    # Пересортируем по количеству сделок
+    top_clients_by_count.sort(key=lambda x: x['deals_count'], reverse=True)
+    top_clients_by_count = top_clients_by_count[:5]
     
-    for client_data in clients_sum:
-        client_id = client_data.get('client__id')
-        if client_id is None:
-            # Пропускаем, если client_id равен None
+    # Топ клиентов по прибыли (отдельный оптимизированный запрос)
+    clients_profit_data = DealItem.objects.filter(
+        deal__status='paid'
+    ).values(
+        'deal__client__id', 'deal__client__nickname'
+    ).annotate(
+        total_profit=Sum(
+            F('total_price') - F('width_meters') * Case(
+                When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
+                default=F('fabric_color__fabric__cost_price'),
+                output_field=models.DecimalField()
+            ),
+            output_field=models.DecimalField()
+        )
+    ).order_by('-total_profit')[:5]
+    
+    total_profit_all = DealItem.objects.filter(deal__status='paid').aggregate(
+        total=Sum(
+            F('total_price') - F('width_meters') * Case(
+                When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
+                default=F('fabric_color__fabric__cost_price'),
+                output_field=models.DecimalField()
+            ),
+            output_field=models.DecimalField()
+        )
+    )['total'] or Decimal('0')
+    
+    for client_data in clients_profit_data:
+        if client_data['deal__client__id'] is None:
             continue
             
-        top_clients_by_sum.append({
-            'nickname': client_data['client__nickname'],
-            'id': client_id,
-            'total_sum': client_data['total_sum'],
-            'last_purchase': client_data['last_purchase']
+        client_total_profit = client_data['total_profit'] or Decimal('0')
+        profit_percentage = (client_total_profit / total_profit_all * 100) if total_profit_all > 0 else 0
+        
+        top_clients_by_profit.append({
+            'nickname': client_data['deal__client__nickname'],
+            'id': client_data['deal__client__id'],
+            'total_profit': client_total_profit,
+            'profit_percentage': profit_percentage
         })
-    
-    # Топ-5 тканей по метрам
-    top_fabrics_by_meters = []
-    fabrics_meters = DealItem.objects.filter(deal__status='paid').values(
+
+    # Топ-5 тканей (объединенный оптимизированный запрос)
+    top_fabrics_data = DealItem.objects.filter(deal__status='paid').values(
         'fabric_color__fabric__name', 'fabric_color__color_name', 'fabric_color__fabric__id'
     ).annotate(
         total_meters=Sum('width_meters'),
-        order_frequency=Count('deal', distinct=True)
+        order_frequency=Count('deal', distinct=True),
+        total_revenue=Sum('total_price'),
+        total_cost=Sum(F('width_meters') * Case(
+            When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
+            default=F('fabric_color__fabric__cost_price'),
+            output_field=models.DecimalField()
+        ))
     ).order_by('-order_frequency')[:5]
     
-    for fabric_data in fabrics_meters:
-        fabric_main_id = fabric_data.get('fabric_color__fabric__id')
-        if fabric_main_id is None:
+    top_fabrics_by_meters = []
+    top_fabrics_by_profit = []
+    top_fabrics_by_revenue = []
+    
+    total_revenue_all = DealItem.objects.filter(deal__status='paid').aggregate(
+        total=Sum('total_price')
+    )['total'] or Decimal('0')
+    
+    for fabric_data in top_fabrics_data:
+        if fabric_data['fabric_color__fabric__id'] is None:
             continue
+        
+        # Для топ по метрам
         top_fabrics_by_meters.append({
             'name': fabric_data['fabric_color__fabric__name'],
             'color': fabric_data['fabric_color__color_name'],
-            'id': fabric_main_id,
+            'id': fabric_data['fabric_color__fabric__id'],
             'total_meters': fabric_data['total_meters'],
             'order_frequency': fabric_data['order_frequency']
         })
-    
-    # Топ-5 тканей по прибыли
-    top_fabrics_by_profit = []
-    fabrics_profit = DealItem.objects.filter(deal__status='paid').values(
-        'fabric_color__fabric__name', 'fabric_color__color_name', 'fabric_color__fabric__id'
-    ).annotate(
-        total_revenue=Sum('total_price'),
-        total_cost=Sum(F('width_meters') * F('fabric_color__fabric__cost_price'))
-    ).order_by('-total_revenue')[:5]
-    
-    for fabric_data in fabrics_profit:
-        fabric_main_id = fabric_data.get('fabric_color__fabric__id')
-        if fabric_main_id is None:
-            continue
+        
+        # Для топ по прибыли
         total_profit = fabric_data['total_revenue'] - fabric_data['total_cost']
         margin = (total_profit / fabric_data['total_revenue'] * 100) if fabric_data['total_revenue'] > 0 else 0
         top_fabrics_by_profit.append({
             'name': fabric_data['fabric_color__fabric__name'],
             'color': fabric_data['fabric_color__color_name'],
-            'id': fabric_main_id,
+            'id': fabric_data['fabric_color__fabric__id'],
             'total_profit': total_profit,
             'margin': margin
         })
-    
-    # Топ-5 тканей по выручке
-    top_fabrics_by_revenue = []
-    total_revenue_all = DealItem.objects.filter(deal__status='paid').aggregate(
-        total=Sum('total_price')
-    )['total'] or Decimal('0')
-    
-    fabrics_revenue = DealItem.objects.filter(deal__status='paid').values(
-        'fabric_color__fabric__name', 'fabric_color__color_name', 'fabric_color__fabric__id'
-    ).annotate(
-        total_revenue=Sum('total_price')
-    ).order_by('-total_revenue')[:5]
-    
-    for fabric_data in fabrics_revenue:
-        fabric_main_id = fabric_data.get('fabric_color__fabric__id')
-        if fabric_main_id is None:
-            continue
+        
+        # Для топ по выручке
         revenue_percentage = (fabric_data['total_revenue'] / total_revenue_all * 100) if total_revenue_all > 0 else 0
         top_fabrics_by_revenue.append({
             'name': fabric_data['fabric_color__fabric__name'],
             'color': fabric_data['fabric_color__color_name'],
-            'id': fabric_main_id,
+            'id': fabric_data['fabric_color__fabric__id'],
             'total_revenue': fabric_data['total_revenue'],
             'revenue_percentage': revenue_percentage
         })
     
-    # Топ 20 клиентов и тканей (только для админа)
+    # Пересортируем списки
+    top_fabrics_by_profit.sort(key=lambda x: x['total_profit'], reverse=True)
+    top_fabrics_by_revenue.sort(key=lambda x: x['total_revenue'], reverse=True)
+    
+    # Данные для графика (только заработок, остальные убраны)
+    month_start_chart = today.replace(day=1)
+    weekly_revenue = []
+    week_labels = []
+    
+    current_period_start_chart = month_start_chart
+    while current_period_start_chart <= today:
+        period_end = min(current_period_start_chart + timedelta(days=2), today)
+        
+        period_revenue_value = Deal.objects.filter(
+            created_at__date__gte=current_period_start_chart,
+            created_at__date__lte=period_end,
+            status='paid'
+        ).aggregate(Sum('total_amount'))['total_amount__sum'] or Decimal('0')
+        
+        weekly_revenue.append(float(period_revenue_value))
+        week_labels.append(f"{current_period_start_chart.strftime('%d.%m')}-{period_end.strftime('%d.%m')}")
+        
+        current_period_start_chart = period_end + timedelta(days=1)
+
+    # Упрощенные топ-20 (только для админов)
     top_20_clients_by_revenue = []
     top_20_clients_by_count = []
     top_20_clients_by_profit = []
@@ -302,192 +421,78 @@ def financial_dashboard(request):
     top_20_fabrics_by_profit = []
     
     if hasattr(request.user, 'userprofile') and request.user.userprofile.role == 'admin':
-        from clients.models import Client
-        
-        # Топ 20 клиентов по выручке
-        clients_revenue_stats = Deal.objects.filter(status='paid').values('client').annotate(
-            total_deals=Count('id'),
-            total_revenue=Sum('total_amount')
-        ).order_by('-total_revenue')[:20]
-        
-        for client_stat in clients_revenue_stats:
-            try:
-                client = Client.objects.get(id=client_stat['client'])
-                top_20_clients_by_revenue.append({
-                    'client': client,
-                    'total_deals': client_stat['total_deals'],
-                    'total_revenue': client_stat['total_revenue']
-                })
-            except Client.DoesNotExist:
-                continue
-        
-        # Топ 20 клиентов по количеству заказов
-        clients_count_stats = Deal.objects.filter(status='paid').values('client').annotate(
-            total_deals=Count('id'),
-            total_revenue=Sum('total_amount')
-        ).order_by('-total_deals')[:20]
-        
-        for client_stat in clients_count_stats:
-            try:
-                client = Client.objects.get(id=client_stat['client'])
-                avg_check = client_stat['total_revenue'] / client_stat['total_deals'] if client_stat['total_deals'] > 0 else 0
-                top_20_clients_by_count.append({
-                    'client': client,
-                    'total_deals': client_stat['total_deals'],
-                    'avg_check': avg_check
-                })
-            except Client.DoesNotExist:
-                continue
-        
-        # Топ 20 клиентов по прибыли
-        clients_profit_stats = Deal.objects.filter(status='paid').values('client').annotate(
-            total_deals=Count('id'),
-            total_revenue=Sum('total_amount')
-        ).order_by('-total_revenue')[:50]  # Берем больше для точного расчета прибыли
-        
-        clients_with_profit = []
-        for client_stat in clients_profit_stats:
-            try:
-                client = Client.objects.get(id=client_stat['client'])
-                client_deals = Deal.objects.filter(client=client, status='paid')
-                client_profit = calculate_profit_for_deals(client_deals)
-                margin = (client_profit / client_stat['total_revenue'] * 100) if client_stat['total_revenue'] > 0 else 0
-                
-                clients_with_profit.append({
-                    'client': client,
-                    'total_deals': client_stat['total_deals'],
-                    'total_revenue': client_stat['total_revenue'],
-                    'total_profit': client_profit,
-                    'margin': margin
-                })
-            except Client.DoesNotExist:
-                continue
-        
-        # Сортируем по прибыли и берем топ 20
-        top_20_clients_by_profit = sorted(clients_with_profit, key=lambda x: x['total_profit'], reverse=True)[:20]
-        
-        # Топ 20 тканей по количеству заказов
-        fabrics_orders_stats = DealItem.objects.filter(deal__status='paid').values(
-            'fabric_color__fabric'
+        # Быстрые запросы для топ-20
+        raw_top20 = list(Deal.objects.filter(status='paid').values(
+            'client__id', 'client__nickname', 'client__phone'
         ).annotate(
-            total_orders=Count('deal', distinct=True),
-            order_frequency=Count('id')
-        ).order_by('-total_orders')[:20]
+            total_revenue=Sum('total_amount'),
+            deals_count=Count('id')
+        ).order_by('-total_revenue')[:20])
         
-        for fabric_stat in fabrics_orders_stats:
-            try:
-                fabric = Fabric.objects.get(id=fabric_stat['fabric_color__fabric'])
-                top_20_fabrics_by_orders.append({
-                    'fabric': fabric,
-                    'total_orders': fabric_stat['total_orders'],
-                    'order_frequency': fabric_stat['order_frequency']
-                })
-            except Fabric.DoesNotExist:
-                continue
+        # Собираем объекты клиентов одним запросом
+        client_ids = [row['client__id'] for row in raw_top20 if row['client__id']]
+        clients_by_id = {c.id: c for c in Client.objects.filter(id__in=client_ids)}
         
-        # Топ 20 тканей по метрам
-        fabrics_meters_stats = DealItem.objects.filter(deal__status='paid').values(
-            'fabric_color__fabric'
+        # Формируем структуру, ожидаемую шаблоном (client объект, total_revenue, total_deals)
+        top_20_clients_by_revenue = [
+            {
+                'client': clients_by_id.get(row['client__id']) or type('obj', (object,), {
+                    'id': row['client__id'],
+                    'nickname': row['client__nickname'],
+                    'phone': row.get('client__phone'),
+                })(),
+                'total_revenue': row['total_revenue'],
+                'total_deals': row['deals_count'],
+            }
+            for row in raw_top20 if row['client__id']
+        ]
+        
+        # По количеству заказов — переиспользуем raw_top20, пересортировав
+        top_20_clients_by_count = sorted(top_20_clients_by_revenue, key=lambda x: x['total_deals'], reverse=True)[:20]
+        
+        # По прибыли — быстрый расчет прибыли по клиентам
+        profit_rows = list(DealItem.objects.filter(deal__status='paid').values(
+            'deal__client__id'
         ).annotate(
-            total_orders=Count('deal', distinct=True),
-            total_meters=Sum('width_meters')
-        ).order_by('-total_meters')[:20]
+            total_profit=Sum(
+                F('total_price') - F('width_meters') * Case(
+                    When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
+                    default=F('fabric_color__fabric__cost_price'),
+                    output_field=models.DecimalField()
+                ),
+                output_field=models.DecimalField()
+            )
+        ).order_by('-total_profit')[:20])
+        profit_by_client = {r['deal__client__id']: r['total_profit'] for r in profit_rows}
         
-        for fabric_stat in fabrics_meters_stats:
-            try:
-                fabric = Fabric.objects.get(id=fabric_stat['fabric_color__fabric'])
-                top_20_fabrics_by_meters.append({
-                    'fabric': fabric,
-                    'total_orders': fabric_stat['total_orders'],
-                    'total_meters': fabric_stat['total_meters']
-                })
-            except Fabric.DoesNotExist:
-                continue
-        
-        # Топ 20 тканей по прибыли
-        fabrics_profit_stats = DealItem.objects.filter(deal__status='paid').values(
-            'fabric_color__fabric'
-        ).annotate(
-            total_orders=Count('deal', distinct=True),
-            total_meters=Sum('width_meters'),
-            total_revenue=Sum('total_price'),
-            total_cost=Sum(F('width_meters') * F('fabric_color__fabric__cost_price'))
-        ).order_by('-total_revenue')[:50]  # Берем больше для точного расчета
-        
-        fabrics_with_profit = []
-        for fabric_stat in fabrics_profit_stats:
-            try:
-                fabric = Fabric.objects.get(id=fabric_stat['fabric_color__fabric'])
-                fabric_profit = fabric_stat['total_revenue'] - fabric_stat['total_cost']
-                
-                fabrics_with_profit.append({
-                    'fabric': fabric,
-                    'total_orders': fabric_stat['total_orders'],
-                    'total_meters': fabric_stat['total_meters'],
-                    'total_revenue': fabric_stat['total_revenue'],
-                    'total_profit': fabric_profit
-                })
-            except Fabric.DoesNotExist:
-                continue
-        
-        # Сортируем по прибыли и берем топ 20
-        top_20_fabrics_by_profit = sorted(fabrics_with_profit, key=lambda x: x['total_profit'], reverse=True)[:20]
+        top_20_clients_by_profit = [
+            {
+                'client': clients_by_id.get(row['client__id']) or type('obj', (object,), {
+                    'id': row['client__id'],
+                    'nickname': row['client__nickname'],
+                    'phone': row.get('client__phone'),
+                })(),
+                'total_profit': profit_by_client.get(row['client__id']) or Decimal('0'),
+                'margin': float((profit_by_client.get(row['client__id']) or Decimal('0')) / row['total_revenue'] * 100) if row['total_revenue'] else 0.0,
+            }
+            for row in raw_top20 if row['client__id']
+        ]
+        top_20_clients_by_profit.sort(key=lambda x: x['total_profit'], reverse=True)
 
-    # Данные для периода (если указаны даты)
+    # Данные о периоде
     period_deals = Deal.objects.filter(
         created_at__date__gte=date_from,
         created_at__date__lte=date_to,
         status='paid'
+    ).order_by('-created_at')[:50]  # Ограничиваем для производительности
+    
+    period_revenue = period_deals.aggregate(Sum('total_amount'))['total_amount__sum'] or Decimal('0')
+    period_profit = calculate_profit_optimized(
+        Q(deal__created_at__date__gte=date_from) & Q(deal__created_at__date__lte=date_to)
     )
-    period_revenue = calculate_revenue_for_deals(period_deals)
-    period_profit = calculate_profit_for_deals(period_deals)
     period_margin = (period_profit / period_revenue * 100) if period_revenue > 0 else 0
     period_deals_count = period_deals.count()
     period_avg_check = period_revenue / period_deals_count if period_deals_count > 0 else 0
-
-    # Данные для графиков
-    # 1. Заработок по неделям текущего месяца
-    
-    today = date.today()
-    month_start = today.replace(day=1)
-    
-    # Вычисляем периоды по 3 дня
-    weekly_revenue = []
-    weekly_deals = []
-    weekly_avg_check = []
-    week_labels = []
-    
-    current_period_start = month_start
-    
-    while current_period_start <= today:
-        period_end = min(current_period_start + timedelta(days=2), today)
-        
-        period_deals_qs = Deal.objects.filter(
-            created_at__date__gte=current_period_start,
-            created_at__date__lte=period_end,
-            status='paid'
-        )
-        
-        period_revenue_value = calculate_revenue_for_deals(period_deals_qs)
-        period_deals_count = period_deals_qs.count()
-        period_avg = period_revenue_value / period_deals_count if period_deals_count > 0 else 0
-        
-        weekly_revenue.append(float(period_revenue_value))
-        weekly_deals.append(period_deals_count)
-        weekly_avg_check.append(float(period_avg))
-        week_labels.append(f"{current_period_start.strftime('%d.%m')}-{period_end.strftime('%d.%m')}")
-        
-        current_period_start = period_end + timedelta(days=1)
-    
-    # 2. Топ 10 популярных тканей
-    top_fabrics_data = DealItem.objects.filter(deal__status='paid').values(
-        'fabric_color__fabric__name'
-    ).annotate(
-        order_count=Count('deal', distinct=True)
-    ).order_by('-order_count')[:10]
-    
-    fabric_names = [item['fabric_color__fabric__name'] for item in top_fabrics_data]
-    fabric_counts = [item['order_count'] for item in top_fabrics_data]
 
     context = {
         # KPI-блоки
@@ -517,18 +522,17 @@ def financial_dashboard(request):
         'quarter_revenue': quarter_revenue,
         'quarter_deals_count': quarter_deals_count,
         
-        'today_iso': date.today().strftime('%Y-%m-%d'),
-        'week_start_iso': (date.today() - timedelta(days=7)).strftime('%Y-%m-%d'),
-        'month_start_iso': (date.today() - timedelta(days=30)).strftime('%Y-%m-%d'),
-        'quarter_start_iso': (date.today() - timedelta(days=90)).strftime('%Y-%m-%d'),
-        'year_start_iso': (date.today() - timedelta(days=365)).strftime('%Y-%m-%d'),
+        'today_iso': today.strftime('%Y-%m-%d'),
+        'week_start_iso': week_start.strftime('%Y-%m-%d'),
+        'month_start_iso': month_start.strftime('%Y-%m-%d'),
+        'quarter_start_iso': quarter_start.strftime('%Y-%m-%d'),
+        'year_start_iso': (today - timedelta(days=364)).strftime('%Y-%m-%d'),
 
         # Топ-ткань месяца
         'top_fabric_month': top_fabric_month,
         
         # Оборачиваемость
         'turnover_days': turnover_days,
-        'turnover_trend': 0,  # Можно добавить расчет тренда
         
         # Топ-клиенты
         'top_clients_by_profit': top_clients_by_profit,
@@ -560,12 +564,11 @@ def financial_dashboard(request):
         
         # Данные для графиков
         'weekly_revenue': weekly_revenue,
-        'weekly_deals': weekly_deals,
-        'weekly_avg_check': weekly_avg_check,
         'week_labels': week_labels,
-        'fabric_names': fabric_names,
-        'fabric_counts': fabric_counts,
     }
+    
+    # Кешируем на 5 минут
+    cache.set(cache_key, context, 300)
     
     return render(request, 'finances/financial_dashboard.html', context)
 
@@ -954,7 +957,7 @@ def get_period_data(request):
     date_from_str = request.GET.get('date_from')
     date_to_str = request.GET.get('date_to')
 
-    today = date.today()
+    today = timezone.localdate()
 
     if date_from_str and date_to_str:
         try:

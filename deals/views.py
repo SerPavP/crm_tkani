@@ -17,7 +17,7 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime
 import re
 import urllib.parse
@@ -319,24 +319,28 @@ def add_deal_item(request, deal_id):
         if form.is_valid():
             deal_item = form.save(commit=False)
             deal_item.deal = deal
+            
+            # Фиксируем себестоимость на момент создания позиции
+            deal_item.fixed_cost_price = deal_item.fabric_color.fabric.cost_price
 
             # Получаем себестоимость для валидации
             fabric_color = deal_item.fabric_color
             cost_price = fabric_color.fabric.cost_price
 
             # Валидация для бухгалтера
-            if request.user.userprofile.role == 'accountant':
+            if hasattr(request.user, 'userprofile') and request.user.userprofile.role == 'accountant':
                 # Получаем текущую цену ткани (продажная цена или себестоимость)
                 current_price = fabric_color.fabric.selling_price or fabric_color.fabric.cost_price
-                # Минимальная цена = текущая цена - 50%
-                min_price = current_price * Decimal('0.50')
-                if deal_item.price_per_meter < min_price:
-                    messages.error(request, f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 50% ({min_price:.2f} ₸). Поднимите цену!')
-                    # Если это AJAX запрос, возвращаем JSON ответ с ошибкой
-                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                        return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 50% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
-                    # Если это обычный запрос, возвращаемся к форме
-                    return redirect('deals:deal_detail', deal_id=deal.id) # Или render с формой и ошибками
+                if current_price is not None:
+                    # Минимальная цена = текущая цена - 50%
+                    min_price = current_price * Decimal('0.50')
+                    if deal_item.price_per_meter < min_price:
+                        messages.error(request, f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 50% ({min_price:.2f} ₸). Поднимите цену!')
+                        # Если это AJAX запрос, возвращаем JSON ответ с ошибкой
+                        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                            return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 50% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
+                        # Если это обычный запрос, возвращаемся к форме
+                        return redirect('deals:deal_detail', deal_id=deal.id) # Или render с формой и ошибками
 
             deal_item.save()
             
@@ -391,20 +395,23 @@ def edit_deal_item(request, deal_id, item_id):
         try:
             fabric_color = FabricColor.objects.get(id=fabric_color_id)
             deal_item.fabric_color = fabric_color
-            deal_item.width_meters = float(width_meters)
-            deal_item.price_per_meter = float(price_per_meter)
+            deal_item.width_meters = Decimal(str(width_meters))
+            deal_item.price_per_meter = Decimal(str(price_per_meter))
+            
+            # ВАЖНО: НЕ изменяем fixed_cost_price при редактировании - она должна остаться зафиксированной!
             
             # Получаем себестоимость для валидации
             cost_price = fabric_color.fabric.cost_price
 
             # Валидация для бухгалтера
-            if request.user.userprofile.role == 'accountant':
+            if hasattr(request.user, 'userprofile') and request.user.userprofile.role == 'accountant':
                 # Получаем текущую цену ткани (продажная цена или себестоимость)
                 current_price = fabric_color.fabric.selling_price or fabric_color.fabric.cost_price
-                # Минимальная цена = текущая цена - 50%
-                min_price = current_price * Decimal('0.50')
-                if deal_item.price_per_meter < min_price:
-                    return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 50% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
+                if current_price is not None:
+                    # Минимальная цена = текущая цена - 50%
+                    min_price = current_price * Decimal('0.50')
+                    if deal_item.price_per_meter < min_price:
+                        return JsonResponse({'success': False, 'error': f'Цена за метр ({deal_item.price_per_meter:.2f} ₸) не может быть ниже текущей цены - 50% ({min_price:.2f} ₸). Поднимите цену!'}, status=400)
 
             deal_item.save()
             
@@ -424,8 +431,10 @@ def edit_deal_item(request, deal_id, item_id):
             return JsonResponse({'success': True, 'deal_total': str(deal.total_amount)})
         except FabricColor.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Выбранный цвет ткани не найден.'}, status=400)
-        except ValueError:
+        except (ValueError, TypeError, InvalidOperation):
             return JsonResponse({'success': False, 'error': 'Некорректные данные для количества или цены.'}, status=400)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Произошла ошибка: {str(e)}'}, status=500)
     
     form = DealItemForm(instance=deal_item)
     context = {

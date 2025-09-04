@@ -84,13 +84,11 @@ class Deal(models.Model):
         
     @property
     def total_profit(self):
-        """Общая прибыль по сделке (с учетом себестоимости)"""
+        """Общая прибыль по сделке (с учетом зафиксированной себестоимости)"""
         from decimal import Decimal
         profit = Decimal('0')
         for item in self.dealitem_set.all():
-            item_cost = Decimal(str(item.width_meters)) * Decimal(str(item.fabric_color.fabric.cost_price))
-            item_profit = Decimal(str(item.total_price)) - item_cost
-            profit += item_profit
+            profit += item.item_profit
         return profit
 
 
@@ -121,6 +119,16 @@ class DealItem(models.Model):
     )
     position_number = models.PositiveIntegerField(verbose_name="Номер позиции")
     
+    # Фиксированная себестоимость на момент создания позиции
+    fixed_cost_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Себестоимость на момент сделки (₸/м)",
+        help_text="Себестоимость ткани зафиксированная на момент создания позиции",
+        null=True,
+        blank=True
+    )
+    
     class Meta:
         verbose_name = "Позиция заказа"
         verbose_name_plural = "Позиции заказов"
@@ -139,7 +147,23 @@ class DealItem(models.Model):
                 self.position_number = last_position.position_number + 1
             else:
                 self.position_number = 1
+        
+        # Фиксируем себестоимость на момент создания позиции (только если еще не установлена)
+        if self.fixed_cost_price is None:
+            self.fixed_cost_price = self.fabric_color.fabric.cost_price
+            
         # Автоматический расчет суммы позиции
         from decimal import Decimal
         self.total_price = Decimal(str(self.width_meters)) * Decimal(str(self.price_per_meter))
         super().save(*args, **kwargs)
+        
+    @property
+    def item_profit(self):
+        """Прибыль с позиции (используя зафиксированную себестоимость)"""
+        from decimal import Decimal
+        if self.fixed_cost_price is not None:
+            item_cost = Decimal(str(self.width_meters)) * Decimal(str(self.fixed_cost_price))
+        else:
+            # Fallback на текущую себестоимость для старых записей
+            item_cost = Decimal(str(self.width_meters)) * Decimal(str(self.fabric_color.fabric.cost_price))
+        return Decimal(str(self.total_price)) - item_cost

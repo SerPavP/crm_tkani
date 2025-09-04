@@ -308,7 +308,14 @@
                                             </div>
                                             {% if user.userprofile.role == 'admin' %}
                                             <div class="small text-muted">
-                                                Себестоимость: {{ item.fabric_color.fabric.cost_price|format_price }} ₸
+                                                {% if item.fixed_cost_price %}
+                                                    Фиксированная себестоимость: {{ item.fixed_cost_price|format_price }} ₸
+                                                    {% if item.fixed_cost_price != item.fabric_color.fabric.cost_price %}
+                                                        <br><span class="text-warning">Текущая: {{ item.fabric_color.fabric.cost_price|format_price }} ₸</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    Себестоимость: {{ item.fabric_color.fabric.cost_price|format_price }} ₸
+                                                {% endif %}
                                             </div>
                                             {% elif user.userprofile.role == 'accountant' %}
                                             <div class="small text-muted">
@@ -363,11 +370,21 @@
                                         <th class="text-success fs-6 fw-bold deal-profit text-end" style="min-width: 200px; width: auto;">+{{ total_profit|format_price }} ₸</th>
                                         <th style="width: 120px;"></th>
                                     </tr>
+                                    <tr>
+                                        <td colspan="7" class="text-end small text-muted" style="padding-top: 0; border-top: none;">
+                                            Рассчитано по зафиксированной себестоимости на момент создания позиций
+                                        </td>
+                                    </tr>
                                     {% elif total_profit < 0 %}
                                     <tr class="table-warning">
                                         <th colspan="5" class="text-end fs-6" style="padding-right: 20px;">Убыток компании:</th>
                                         <th class="text-danger fs-6 fw-bold deal-profit text-end" style="min-width: 200px; width: auto;">{{ total_profit|format_price }} ₸</th>
                                         <th style="width: 120px;"></th>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="7" class="text-end small text-muted" style="padding-top: 0; border-top: none;">
+                                            Рассчитано по зафиксированной себестоимости на момент создания позиций
+                                        </td>
                                     </tr>
                                     {% endif %}
                                 {% endif %}
@@ -693,9 +710,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     priceToShow = selectedOption.dataset.sellingPrice || selectedOption.dataset.costPrice;
                     label = 'Цена:';
                 } else {
-                    // Для остальных показываем себестоимость
+                    // Для остальных показываем текущую себестоимость (будет зафиксирована при сохранении)
                     priceToShow = selectedOption.dataset.costPrice;
-                    label = 'Себестоимость:';
+                    label = 'Текущая себестоимость:';
                 }
                 
                 const priceText = parseFloat(priceToShow.replace(',', '.')).toLocaleString('ru-RU', {
@@ -1291,9 +1308,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 priceToShow = selectedOption.dataset.sellingPrice || selectedOption.dataset.costPrice;
                                 label = 'Цена:';
                             } else {
-                                // Для остальных показываем себестоимость
+                                // Для остальных показываем текущую себестоимость (фиксированная НЕ изменится!)
                                 priceToShow = selectedOption.dataset.costPrice;
-                                label = 'Себестоимость:';
+                                label = 'Текущая себестоимость:';
                             }
                             
                             const priceText = parseFloat(priceToShow.replace(',', '.')).toLocaleString('ru-RU', {
