@@ -231,17 +231,15 @@
             <div class="card-body">
                 <!-- Выбор периода -->
                 <div class="btn-group w-100 mb-3" role="group">
-                    <input type="radio" class="btn-check" name="period" id="day_period" value="day" 
-                           {% if period == 'day' %}checked{% endif %}>
-                    <label class="btn btn-outline-secondary btn-sm" for="day_period">День</label>
+                    <button type="button" class="btn btn-outline-secondary btn-sm {% if period == 'today' %}active{% endif %}" onclick="setQuickPeriod('today', this)">Сегодня</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm {% if period == 'yesterday' %}active{% endif %}" onclick="setQuickPeriod('yesterday', this)">Вчера</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm {% if period == 'week' %}active{% endif %}" onclick="setQuickPeriod('week', this)">Неделя</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm {% if period == 'month' %}active{% endif %}" onclick="setQuickPeriod('month', this)">Месяц</button>
+                </div>
 
-                    <input type="radio" class="btn-check" name="period" id="week_period" value="week"
-                           {% if period == 'week' %}checked{% endif %}>
-                    <label class="btn btn-outline-secondary btn-sm" for="week_period">Неделя</label>
-
-                    <input type="radio" class="btn-check" name="period" id="month_period" value="month"
-                           {% if period == 'month' %}checked{% endif %}>
-                    <label class="btn btn-outline-secondary btn-sm" for="month_period">Месяц</label>
+                <!-- Период информация -->
+                <div class="mb-2">
+                    <strong>Период:</strong> {{ period_display }}
                 </div>
 
                 <table class="table table-borderless table-sm">
@@ -304,14 +302,22 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Обработчик для переключения периода статистики с сохранением позиции
-    document.querySelectorAll('input[name="period"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            const url = new URL(window.location);
-            url.searchParams.set('period', this.value);
-            url.hash = 'statistics-card'; // Добавляем якорь для возврата к статистике
-            window.location.href = url.toString();
+    window.setQuickPeriod = function(period, button) {
+        // Remove active class from all buttons
+        document.querySelectorAll('.btn-group .btn').forEach(btn => {
+            btn.classList.remove('active');
         });
-    });
+        
+        // Add active class to clicked button
+        if (button) {
+            button.classList.add('active');
+        }
+        
+        const url = new URL(window.location);
+        url.searchParams.set('period', period);
+        url.hash = 'statistics-card'; // Добавляем якорь для возврата к статистике
+        window.location.href = url.toString();
+    };
 
     // Обработчик кликов по строкам таблицы сделок
     document.querySelectorAll('.clickable-row').forEach(function(row) {

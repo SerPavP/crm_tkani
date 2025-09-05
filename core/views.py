@@ -23,25 +23,40 @@ def home(request):
         return redirect('warehouse:view_rolls')
     
     # Параметры из GET запроса
-    period = request.GET.get('period', 'day')  # day, week, month
+    period = request.GET.get('period', 'today')  # today, yesterday, week, month
     deals_type = request.GET.get('deals_type', 'recent')  # recent, pending
     
     # Определяем период для статистики
-    if period == 'week':
-        # Текущая неделя (понедельник - воскресенье)
-        days_since_monday = today.weekday()
-        start_date = today - timedelta(days=days_since_monday)
-        period_name = "за текущую неделю"
+    if period == 'yesterday':
+        # Вчера
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+        period_name = "вчера"
+        period_display = (today - timedelta(days=1)).strftime('%d.%m.%Y')
+    elif period == 'week':
+        # Текущая неделя (последние 7 дней)
+        start_date = today - timedelta(days=6)
+        end_date = today
+        period_name = "за неделю"
+        week_start = (today - timedelta(days=6)).strftime('%d.%m.%Y')
+        week_end = today.strftime('%d.%m.%Y')
+        period_display = f"{week_start} - {week_end}"
     elif period == 'month':
-        # Текущий месяц
-        start_date = today.replace(day=1)
-        period_name = "за текущий месяц"
-    else:  # day
+        # Текущий месяц (последние 32 дня, как в финансах)
+        start_date = today - timedelta(days=32)
+        end_date = today
+        period_name = "за месяц"
+        month_start = (today - timedelta(days=32)).strftime('%d.%m.%Y')
+        month_end = today.strftime('%d.%m.%Y')
+        period_display = f"{month_start} - {month_end}"
+    else:  # today
         start_date = today
+        end_date = today
         period_name = "за сегодня"
+        period_display = today.strftime('%d.%m.%Y')
     
     # Статистика по выбранному периоду
-    period_deals = Deal.objects.filter(created_at__date__gte=start_date)
+    period_deals = Deal.objects.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
     
     # Только оплаченные сделки для всех показателей
     period_paid_deals = period_deals.filter(status='paid')
@@ -79,6 +94,7 @@ def home(request):
         'period_revenue': period_revenue,
         'period_profit': period_profit,
         'period_name': period_name,
+        'period_display': period_display,
         'period': period,
         'deals_type': deals_type,
         'pending_deals_count': pending_deals_count,

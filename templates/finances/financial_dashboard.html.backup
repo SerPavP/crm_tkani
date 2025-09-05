@@ -112,31 +112,6 @@
     font-size: 1.5rem !important;
 }
 
-/* Равномерное распределение 5 карточек */
-.col-md-1-5 {
-    flex: 0 0 20%;
-    max-width: 20%;
-}
-
-/* Запрет переноса для ряда быстрых карточек и горизонтальная прокрутка при нехватке ширины */
-.periods-row {
-    flex-wrap: nowrap !important;
-    overflow-x: auto;
-}
-
-/* Явная ширина для колонок периодов */
-.periods-col {
-    flex: 0 0 20% !important;
-    max-width: 20% !important;
-}
-
-@media (max-width: 767px) {
-    .col-md-1-5 {
-        flex: 0 0 100%;
-        max-width: 100%;
-    }
-}
-
 /* Адаптивные размеры для карточек периодов */
 @media (max-width: 1200px) {
     .large-number {
@@ -565,11 +540,11 @@
 <!-- KPI-блоки -->
 <div class="row mb-3">
     <div class="col-12">
-        <h4 class="text-muted"><i class="bi bi-graph-up"></i> Статистика за текущий месяц <small class="text-muted">({{ current_period_display }})</small></h4>
+        <h4 class="text-muted"><i class="bi bi-graph-up"></i> Статистика за текущий месяц</h4>
     </div>
 </div>
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card kpi-card text-white bg-primary">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -578,13 +553,13 @@
                         <h4 class="mb-0 large-number">{{ current_period_revenue|format_price }} ₸</h4>
                     </div>
                     <div class="align-self-center">
-                        <i class="bi bi-calendar3 display-6"></i>
+                        <i class="bi bi-calendar-month display-6"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card kpi-card text-white bg-success">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -599,7 +574,22 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
+        <div class="card kpi-card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Рентабельность</h6>
+                        <h4 class="mb-0">{{ current_period_margin|floatformat:1 }}%</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-percent display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
         <div class="card kpi-card text-white bg-warning">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -617,7 +607,7 @@
 </div>
 
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card kpi-card text-white bg-secondary">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -632,7 +622,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card kpi-card text-white bg-danger">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -648,7 +638,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card kpi-card text-white bg-dark">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -695,8 +685,8 @@
             <!-- Быстрая информация -->
             <div class="tab-pane fade show active" id="quick" role="tabpanel">
                 <!-- Интерактивные карточки периодов -->
-                <div class="row mb-4 periods-row">
-                    <div class="col-md-1-5 periods-col mb-3">
+                <div class="row mb-4">
+                    <div class="col-lg-2 col-md-3 col-sm-6 mb-3">
                         <div class="card period-card mobile-friendly" onclick="showPeriodDetails('today')">
                             <div class="card-body text-center">
                                 <h5>Сегодня</h5>
@@ -706,7 +696,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-1-5 periods-col mb-3">
+                    <div class="col-lg-2 col-md-3 col-sm-6 mb-3">
                         <div class="card period-card mobile-friendly" onclick="showPeriodDetails('week')">
                             <div class="card-body text-center">
                                 <h5>Неделя</h5>
@@ -716,7 +706,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-1-5 periods-col mb-3">
+                    <div class="col-lg-2 col-md-3 col-sm-6 mb-3">
                         <div class="card period-card mobile-friendly" onclick="showPeriodDetails('month')">
                             <div class="card-body text-center">
                                 <h5>Месяц</h5>
@@ -726,7 +716,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-1-5 periods-col mb-3">
+                    <div class="col-lg-2 col-md-3 col-sm-6 mb-3">
                         <div class="card period-card mobile-friendly" onclick="showPeriodDetails('quarter')">
                             <div class="card-body text-center">
                                 <h5>Квартал</h5>
@@ -736,7 +726,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-1-5 periods-col mb-3">
+                    <div class="col-lg-2 col-md-3 col-sm-6 mb-3">
                         <div class="card period-card mobile-friendly" onclick="showPeriodDetails('year')">
                             <div class="card-body text-center">
                                 <h5>Год</h5>
@@ -761,15 +751,19 @@
                                     <div class="col-12 mb-3">
                                         <h5 class="text-success">{{ current_period_profit|format_price }} ₸</h5>
                                         <small class="text-muted">Общая прибыль (30 дней)</small>
+                                        </div>
+                                    <div class="col-6">
+                                        <h6 class="text-info">{{ current_period_margin|floatformat:1 }}%</h6>
+                                        <small class="text-muted">Рентабельность</small>
                                     </div>
-                                    <div class="col-12">
+                                    <div class="col-6">
                                         <h6 class="text-warning">{{ current_period_avg_check|format_price }} ₸</h6>
                                         <small class="text-muted">Средний чек</small>
+                                        </div>
+                                    </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- Складские показатели -->
                     <div class="col-md-4">

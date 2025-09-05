@@ -45,14 +45,26 @@ def financial_dashboard(request):
         date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
     
     # Определяем периоды
-    current_period_start = today - timedelta(days=30)
+    # Текущий календарный месяц (с 1 числа до сегодня)
+    current_period_start = today.replace(day=1)
     current_period_end = today
-    previous_period_start = current_period_start - timedelta(days=30)
-    previous_period_end = current_period_start - timedelta(days=1)
+    
+    # Предыдущий календарный месяц
+    if today.month == 1:
+        prev_month = today.replace(year=today.year-1, month=12, day=1)
+    else:
+        prev_month = today.replace(month=today.month-1, day=1)
+    
+    # Последний день предыдущего месяца
+    import calendar
+    last_day = calendar.monthrange(prev_month.year, prev_month.month)[1]
+    previous_period_start = prev_month
+    previous_period_end = prev_month.replace(day=last_day)
     
     week_start = today - timedelta(days=6)
-    month_start = today - timedelta(days=29)
+    month_start = today - timedelta(days=32)  # Изменено с 29 на 32 дня
     quarter_start = today - timedelta(days=89)
+    year_start = today - timedelta(days=364)
 
     # ОПТИМИЗИРОВАННЫЙ ЗАПРОС: Получаем все необходимые данные одним запросом
     all_deals = Deal.objects.filter(status='paid').prefetch_related('dealitem_set__fabric_color__fabric')
@@ -149,6 +161,21 @@ def financial_dashboard(request):
                      then='id'),
                 output_field=models.IntegerField()
             )
+        ),
+        year_revenue=Sum(
+            Case(
+                When(Q(created_at__date__gte=year_start) & Q(created_at__date__lte=today), 
+                     then='total_amount'),
+                default=0,
+                output_field=models.DecimalField()
+            )
+        ),
+        year_count=Count(
+            Case(
+                When(Q(created_at__date__gte=year_start) & Q(created_at__date__lte=today), 
+                     then='id'),
+                output_field=models.IntegerField()
+            )
         )
     )
     
@@ -166,6 +193,8 @@ def financial_dashboard(request):
     month_deals_count = period_stats['month_count'] or 0
     quarter_revenue = period_stats['quarter_revenue'] or Decimal('0')
     quarter_deals_count = period_stats['quarter_count'] or 0
+    year_revenue = period_stats['year_revenue'] or Decimal('0')
+    year_deals_count = period_stats['year_count'] or 0
 
     # Быстрое вычисление прибыли (оптимизированное)
     def calculate_profit_optimized(deal_filter_q):
@@ -521,12 +550,24 @@ def financial_dashboard(request):
         'month_deals_count': month_deals_count,
         'quarter_revenue': quarter_revenue,
         'quarter_deals_count': quarter_deals_count,
+        'year_revenue': year_revenue,
+        'year_deals_count': year_deals_count,
         
         'today_iso': today.strftime('%Y-%m-%d'),
         'week_start_iso': week_start.strftime('%Y-%m-%d'),
         'month_start_iso': month_start.strftime('%Y-%m-%d'),
         'quarter_start_iso': quarter_start.strftime('%Y-%m-%d'),
-        'year_start_iso': (today - timedelta(days=364)).strftime('%Y-%m-%d'),
+        'year_start_iso': year_start.strftime('%Y-%m-%d'),
+        
+        # Форматированные даты для отображения периодов
+        'today_display': today.strftime('%d.%m.%Y'),
+        'week_display': f"{week_start.strftime('%d.%m.%Y')} - {today.strftime('%d.%m.%Y')}",
+        'month_display': f"{month_start.strftime('%d.%m.%Y')} - {today.strftime('%d.%m.%Y')}",
+        'quarter_display': f"{quarter_start.strftime('%d.%m.%Y')} - {today.strftime('%d.%m.%Y')}",
+        'year_display': f"{year_start.strftime('%d.%m.%Y')} - {today.strftime('%d.%m.%Y')}",
+
+        # Отображение текущего периода для заголовка KPI
+        'current_period_display': f"{current_period_start.strftime('%d.%m.%Y')} - {current_period_end.strftime('%d.%m.%Y')}",
 
         # Топ-ткань месяца
         'top_fabric_month': top_fabric_month,
