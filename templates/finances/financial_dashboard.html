@@ -999,6 +999,64 @@
             <!-- Топ 20 -->
             {% if user.userprofile.role == 'admin' %}
             <div class="tab-pane fade" id="top20" role="tabpanel">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <form method="get" id="top20-filter-form" class="row g-2 align-items-end">
+                            <div class="col-12 col-md-2">
+                                <label class="form-label mb-1">Режим</label>
+                                <select class="form-select" name="top20_mode" id="top20_mode">
+                                    <option value="month" {% if top20_mode == 'month' %}selected{% endif %}>Месяцы</option>
+                                    <option value="year" {% if top20_mode == 'year' %}selected{% endif %}>Годы</option>
+                                </select>
+                            </div>
+                            <div class="col-6 col-md-3" id="top20-month-from">
+                                <label class="form-label mb-1">С месяца</label>
+                                <input type="month" class="form-control" name="top20_month_from" id="top20_month_from" value="{{ top20_month_from }}">
+                            </div>
+                            <div class="col-6 col-md-3" id="top20-month-to">
+                                <label class="form-label mb-1">По месяц</label>
+                                <input type="month" class="form-control" name="top20_month_to" id="top20_month_to" value="{{ top20_month_to }}">
+                            </div>
+                            <div class="col-6 col-md-2" id="top20-year-from" style="display: none;">
+                                <label class="form-label mb-1">С года</label>
+                                <input type="number" min="2000" max="2100" step="1" class="form-control" name="top20_year_from" id="top20_year_from" value="{{ top20_year_from }}">
+                            </div>
+                            <div class="col-6 col-md-2" id="top20-year-to" style="display: none;">
+                                <label class="form-label mb-1">По год</label>
+                                <input type="number" min="2000" max="2100" step="1" class="form-control" name="top20_year_to" id="top20_year_to" value="{{ top20_year_to }}">
+                            </div>
+                            <div class="col-12 col-md-2">
+                                <button type="submit" id="top20-apply" class="btn btn-primary w-100"><i class="bi bi-funnel"></i> Применить</button>
+                            </div>
+                        </form>
+                        <script>
+                        (function() {
+                            function toggleTop20Inputs() {
+                                var mode = document.querySelector('select[name="top20_mode"]').value;
+                                var monthFrom = document.getElementById('top20-month-from');
+                                var monthTo = document.getElementById('top20-month-to');
+                                var yearFrom = document.getElementById('top20-year-from');
+                                var yearTo = document.getElementById('top20-year-to');
+                                if (mode === 'year') {
+                                    monthFrom.style.display = 'none';
+                                    monthTo.style.display = 'none';
+                                    yearFrom.style.display = '';
+                                    yearTo.style.display = '';
+                                } else {
+                                    monthFrom.style.display = '';
+                                    monthTo.style.display = '';
+                                    yearFrom.style.display = 'none';
+                                    yearTo.style.display = 'none';
+                                }
+                            }
+                            document.addEventListener('DOMContentLoaded', function() {
+                                document.querySelector('select[name="top20_mode"]').addEventListener('change', toggleTop20Inputs);
+                                toggleTop20Inputs();
+                            });
+                        })();
+                        </script>
+                    </div>
+                </div>
                 <!-- Переключатель между клиентами и тканями -->
                 <div class="card mb-4">
     <div class="card-header">
@@ -1044,7 +1102,7 @@
                                                         <th>Заказов</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody>
+                                                <tbody id="tbody-top20-clients-revenue">
                                                     {% for client_stat in top_20_clients_by_revenue %}
                                                     <tr class="clickable-row" data-href="{% url 'clients:client_detail' client_stat.client.id %}" style="cursor: pointer;">
                                                         <td>{{ forloop.counter }}</td>
@@ -1079,7 +1137,7 @@
                                                         <th>Средний чек</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody>
+                                                <tbody id="tbody-top20-clients-count">
                                                     {% for client_stat in top_20_clients_by_count %}
                                                     <tr class="clickable-row" data-href="{% url 'clients:client_detail' client_stat.client.id %}" style="cursor: pointer;">
                                                         <td>{{ forloop.counter }}</td>
@@ -1114,7 +1172,7 @@
                                                         <th>Рентабельность</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody>
+                                                <tbody id="tbody-top20-clients-profit">
                                                     {% for client_stat in top_20_clients_by_profit %}
                                                     <tr class="clickable-row" data-href="{% url 'clients:client_detail' client_stat.client.id %}" style="cursor: pointer;">
                                                         <td>{{ forloop.counter }}</td>
@@ -1173,7 +1231,7 @@
                                                         <th>Частота</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody>
+                                                <tbody id="tbody-top20-fabrics-orders">
                                                     {% for fabric_stat in top_20_fabrics_by_orders %}
                                                     <tr class="clickable-row" data-href="{% url 'fabrics:fabric_detail' fabric_stat.fabric.id %}" style="cursor: pointer;">
                                                         <td>{{ forloop.counter }}</td>
@@ -1206,7 +1264,7 @@
                                                         <th>Заказов</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody>
+                                                <tbody id="tbody-top20-fabrics-meters">
                                                     {% for fabric_stat in top_20_fabrics_by_meters %}
                                                     <tr class="clickable-row" data-href="{% url 'fabrics:fabric_detail' fabric_stat.fabric.id %}" style="cursor: pointer;">
                                                         <td>{{ forloop.counter }}</td>
@@ -1239,7 +1297,7 @@
                                                         <th>Выручка</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody>
+                                                <tbody id="tbody-top20-fabrics-profit">
                                                     {% for fabric_stat in top_20_fabrics_by_profit %}
                                                     <tr class="clickable-row" data-href="{% url 'fabrics:fabric_detail' fabric_stat.fabric.id %}" style="cursor: pointer;">
                                                         <td>{{ forloop.counter }}</td>
@@ -1264,6 +1322,84 @@
                         </div>
                     </div>
                 </div>
+
+                <script>
+                // Динамическая загрузка Top-20
+                document.addEventListener('DOMContentLoaded', function() {
+                    const form = document.getElementById('top20-filter-form');
+                    const modeEl = document.getElementById('top20_mode');
+                    const monthFromEl = document.getElementById('top20_month_from');
+                    const monthToEl = document.getElementById('top20_month_to');
+                    const yearFromEl = document.getElementById('top20_year_from');
+                    const yearToEl = document.getElementById('top20_year_to');
+
+                    function renderRows(containerId, rows, type) {
+                        const tbody = document.getElementById(containerId);
+                        if (!tbody) return;
+                        if (!rows || rows.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Нет данных</td></tr>';
+                            return;
+                        }
+                        const html = rows.map((r, idx) => {
+                            if (type.startsWith('client')) {
+                                if (type === 'client_revenue' || type === 'client_count') {
+                                    return `<tr><td>${idx+1}</td><td><strong>${r.nickname || '—'}</strong>${r.phone ? `<br><small class="text-muted">${r.phone}</small>` : ''}</td><td>${new Intl.NumberFormat('ru-RU').format(Math.round((type==='client_revenue'? r.total_revenue : r.total_deals)))}${type==='client_revenue' ? ' ₸' : ''}</td><td>${type==='client_revenue' ? `<span class="badge bg-primary">${r.total_deals}</span>` : new Intl.NumberFormat('ru-RU').format(Math.round(r.avg_check)) + ' ₸'}</td></tr>`;
+                                } else if (type === 'client_profit') {
+                                    return `<tr><td>${idx+1}</td><td><strong>${r.nickname || '—'}</strong>${r.phone ? `<br><small class=\"text-muted\">${r.phone}</small>` : ''}</td><td class=\"text-success\"><strong>${new Intl.NumberFormat('ru-RU').format(Math.round(r.total_profit))} ₸</strong></td><td>${r.margin.toFixed(1)}%</td></tr>`;
+                                }
+                            } else if (type.startsWith('fabric')) {
+                                if (type === 'fabric_orders') {
+                                    return `<tr><td>${idx+1}</td><td><strong>${r.name}</strong></td><td><span class=\"badge bg-info\">${r.total_orders}</span></td><td>${r.order_frequency}</td></tr>`;
+                                } else if (type === 'fabric_meters') {
+                                    return `<tr><td>${idx+1}</td><td><strong>${r.name}</strong></td><td><span class=\"badge bg-secondary\">${(r.total_meters || 0).toFixed(1)}м</span></td><td><span class=\"badge bg-info\">${r.total_orders}</span></td></tr>`;
+                                } else if (type === 'fabric_profit') {
+                                    return `<tr><td>${idx+1}</td><td><strong>${r.name}</strong></td><td class=\"text-success\"><strong>${new Intl.NumberFormat('ru-RU').format(Math.round(r.total_profit))} ₸</strong></td><td><strong>${new Intl.NumberFormat('ru-RU').format(Math.round(r.total_revenue))} ₸</strong></td></tr>`;
+                                }
+                            }
+                            return '';
+                        }).join('');
+                        tbody.innerHTML = html;
+                    }
+
+                    function fetchTop20() {
+                        const params = new URLSearchParams();
+                        params.set('top20_mode', modeEl.value);
+                        if (modeEl.value === 'year') {
+                            params.set('top20_year_from', yearFromEl.value || '');
+                            params.set('top20_year_to', yearToEl.value || '');
+                        } else {
+                            params.set('top20_month_from', monthFromEl.value || '');
+                            params.set('top20_month_to', monthToEl.value || '');
+                        }
+                        fetch('{% url 'finances:get_top20_data' %}?'+params.toString())
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.error) return;
+                                renderRows('tbody-top20-clients-revenue', data.clients.revenue, 'client_revenue');
+                                renderRows('tbody-top20-clients-count', data.clients.count, 'client_count');
+                                renderRows('tbody-top20-clients-profit', data.clients.profit, 'client_profit');
+                                renderRows('tbody-top20-fabrics-orders', data.fabrics.orders, 'fabric_orders');
+                                renderRows('tbody-top20-fabrics-meters', data.fabrics.meters, 'fabric_meters');
+                                renderRows('tbody-top20-fabrics-profit', data.fabrics.profit, 'fabric_profit');
+                            })
+                            .catch(console.error);
+                    }
+
+                    form.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        fetchTop20();
+                    });
+
+                    // Автоподгрузка при смене периода без нажатия
+                    ['change', 'input'].forEach(evt => {
+                        modeEl.addEventListener(evt, fetchTop20);
+                        monthFromEl.addEventListener(evt, fetchTop20);
+                        monthToEl.addEventListener(evt, fetchTop20);
+                        yearFromEl.addEventListener(evt, fetchTop20);
+                        yearToEl.addEventListener(evt, fetchTop20);
+                    });
+                });
+                </script>
             </div>
             {% endif %}
         </div>

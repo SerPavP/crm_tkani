@@ -14,5 +14,6 @@ urlpatterns = [
     path('get-markup-percentage/', views.get_markup_percentage, name='get_markup_percentage'),
     path('set-fabric-cost-price/', views.set_fabric_cost_price, name='set_fabric_cost_price'),
     path('get-period-data/', views.get_period_data, name='get_period_data'),
+    path('get-top20-data/', views.get_top20_data, name='get_top20_data'),
 ]
 

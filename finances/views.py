@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.core.cache import cache
 from decimal import Decimal
 import calendar
+import hashlib
 
 
 @login_required
@@ -26,7 +27,7 @@ def financial_dashboard(request):
         return redirect('core:home')
 
     # Кеширование дорогих вычислений на 5 минут
-    cache_key = f"financial_dashboard_data:{request.user.id}"
+    cache_key = f"financial_dashboard_data:{request.user.id}:{hashlib.md5(request.META.get('QUERY_STRING', '').encode()).hexdigest()}"
     cached_data = cache.get(cache_key)
     
     if cached_data:
@@ -448,21 +449,66 @@ def financial_dashboard(request):
     top_20_fabrics_by_orders = []
     top_20_fabrics_by_meters = []
     top_20_fabrics_by_profit = []
-    
+
+    # Параметры периода для Топ-20 (месяц/год, с возможностью диапазона)
+    top20_mode = request.GET.get('top20_mode', 'month')  # 'month' или 'year'
+    # Значения по умолчанию — текущий месяц / текущий год
+    default_month = today.strftime('%Y-%m')
+    default_year = today.strftime('%Y')
+
+    top20_month_from = request.GET.get('top20_month_from', default_month)
+    top20_month_to = request.GET.get('top20_month_to', default_month)
+    top20_year_from = request.GET.get('top20_year_from', default_year)
+    top20_year_to = request.GET.get('top20_year_to', default_year)
+
+    # Вычисляем границы дат для выбранного режима
+    if top20_mode == 'year':
+        try:
+            y_from = int(top20_year_from)
+            y_to = int(top20_year_to)
+            if y_from > y_to:
+                y_from, y_to = y_to, y_from
+        except Exception:
+            y_from = int(default_year)
+            y_to = int(default_year)
+        top20_start_date = datetime(y_from, 1, 1).date()
+        top20_end_date = datetime(y_to, 12, 31).date()
+    else:
+        # Режим месяцев
+        try:
+            y1, m1 = map(int, top20_month_from.split('-'))
+            y2, m2 = map(int, top20_month_to.split('-'))
+            # Нормализуем порядок
+            d1 = datetime(y1, m1, 1).date()
+            last_day_m2 = calendar.monthrange(y2, m2)[1]
+            d2 = datetime(y2, m2, last_day_m2).date()
+            if d1 > d2:
+                d1, d2 = d2, d1
+            top20_start_date, top20_end_date = d1, d2
+        except Exception:
+            y, m = map(int, default_month.split('-'))
+            top20_start_date = datetime(y, m, 1).date()
+            top20_end_date = datetime(y, m, calendar.monthrange(y, m)[1]).date()
+
+    top20_date_filter_q = Q(deal__created_at__date__gte=top20_start_date) & Q(deal__created_at__date__lte=top20_end_date)
+
     if hasattr(request.user, 'userprofile') and request.user.userprofile.role == 'admin':
-        # Быстрые запросы для топ-20
-        raw_top20 = list(Deal.objects.filter(status='paid').values(
-            'client__id', 'client__nickname', 'client__phone'
-        ).annotate(
-            total_revenue=Sum('total_amount'),
-            deals_count=Count('id')
-        ).order_by('-total_revenue')[:20])
+        # Быстрые запросы для топ-20 (клиенты)
+        raw_top20 = list(
+            Deal.objects.filter(status='paid', created_at__date__gte=top20_start_date, created_at__date__lte=top20_end_date)
+            .values('client__id', 'client__nickname', 'client__phone')
+            .annotate(
+                total_revenue=Sum('total_amount'),
+                deals_count=Count('id')
+            )
+            .order_by('-total_revenue')[:20]
+        )
         
         # Собираем объекты клиентов одним запросом
         client_ids = [row['client__id'] for row in raw_top20 if row['client__id']]
         clients_by_id = {c.id: c for c in Client.objects.filter(id__in=client_ids)}
         
-        # Формируем структуру, ожидаемую шаблоном (client объект, total_revenue, total_deals)
+        # Формируем структуру (client объект, total_revenue, total_deals)
         top_20_clients_by_revenue = [
             {
                 'client': clients_by_id.get(row['client__id']) or type('obj', (object,), {
@@ -472,6 +518,7 @@ def financial_dashboard(request):
                 })(),
                 'total_revenue': row['total_revenue'],
                 'total_deals': row['deals_count'],
+                'avg_check': (row['total_revenue'] / row['deals_count']) if row['deals_count'] else Decimal('0'),
             }
             for row in raw_top20 if row['client__id']
         ]
@@ -480,18 +527,21 @@ def financial_dashboard(request):
         top_20_clients_by_count = sorted(top_20_clients_by_revenue, key=lambda x: x['total_deals'], reverse=True)[:20]
         
         # По прибыли — быстрый расчет прибыли по клиентам
-        profit_rows = list(DealItem.objects.filter(deal__status='paid').values(
-            'deal__client__id'
-        ).annotate(
-            total_profit=Sum(
-                F('total_price') - F('width_meters') * Case(
-                    When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
-                    default=F('fabric_color__fabric__cost_price'),
+        profit_rows = list(
+            DealItem.objects.filter(deal__status='paid').filter(top20_date_filter_q)
+            .values('deal__client__id')
+            .annotate(
+                total_profit=Sum(
+                    F('total_price') - F('width_meters') * Case(
+                        When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
+                        default=F('fabric_color__fabric__cost_price'),
+                        output_field=models.DecimalField()
+                    ),
                     output_field=models.DecimalField()
-                ),
-                output_field=models.DecimalField()
+                )
             )
-        ).order_by('-total_profit')[:20])
+            .order_by('-total_profit')[:20]
+        )
         profit_by_client = {r['deal__client__id']: r['total_profit'] for r in profit_rows}
         
         top_20_clients_by_profit = [
@@ -507,6 +557,84 @@ def financial_dashboard(request):
             for row in raw_top20 if row['client__id']
         ]
         top_20_clients_by_profit.sort(key=lambda x: x['total_profit'], reverse=True)
+
+        # Топ-20 тканей
+        fabric_qs_base = DealItem.objects.filter(deal__status='paid', fabric_color__fabric__isnull=False).filter(top20_date_filter_q)
+
+        # По количеству заказов
+        orders_rows = list(
+            fabric_qs_base
+            .values('fabric_color__fabric__id')
+            .annotate(
+                total_orders=Count('deal', distinct=True),
+                order_frequency=Count('id')
+            )
+            .order_by('-total_orders')[:20]
+        )
+        fabric_ids_orders = [r['fabric_color__fabric__id'] for r in orders_rows if r['fabric_color__fabric__id']]
+
+        # По метрам
+        meters_rows = list(
+            fabric_qs_base
+            .values('fabric_color__fabric__id')
+            .annotate(
+                total_meters=Sum('width_meters'),
+                total_orders=Count('deal', distinct=True)
+            )
+            .order_by('-total_meters')[:20]
+        )
+        fabric_ids_meters = [r['fabric_color__fabric__id'] for r in meters_rows if r['fabric_color__fabric__id']]
+
+        # По прибыли/выручке
+        profit_rows_fabric = list(
+            fabric_qs_base
+            .values('fabric_color__fabric__id')
+            .annotate(
+                total_revenue=Sum('total_price'),
+                total_profit=Sum(
+                    F('total_price') - F('width_meters') * Case(
+                        When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
+                        default=F('fabric_color__fabric__cost_price'),
+                        output_field=models.DecimalField()
+                    ),
+                    output_field=models.DecimalField()
+                )
+            )
+            .order_by('-total_profit')[:20]
+        )
+        fabric_ids_profit = [r['fabric_color__fabric__id'] for r in profit_rows_fabric if r['fabric_color__fabric__id']]
+
+        # Собираем объекты тканей
+        fabric_ids = list({*fabric_ids_orders, *fabric_ids_meters, *fabric_ids_profit})
+        fabrics_by_id = {f.id: f for f in Fabric.objects.filter(id__in=fabric_ids)}
+
+        # Формируем структуры для шаблона
+        top_20_fabrics_by_orders = [
+            {
+                'fabric': fabrics_by_id.get(r['fabric_color__fabric__id']),
+                'total_orders': r['total_orders'],
+                'order_frequency': r['order_frequency'],
+            }
+            for r in orders_rows if r['fabric_color__fabric__id'] and fabrics_by_id.get(r['fabric_color__fabric__id'])
+        ]
+
+        top_20_fabrics_by_meters = [
+            {
+                'fabric': fabrics_by_id.get(r['fabric_color__fabric__id']),
+                'total_meters': r['total_meters'] or 0,
+                'total_orders': r['total_orders'],
+            }
+            for r in meters_rows if r['fabric_color__fabric__id'] and fabrics_by_id.get(r['fabric_color__fabric__id'])
+        ]
+
+        top_20_fabrics_by_profit = [
+            {
+                'fabric': fabrics_by_id.get(r['fabric_color__fabric__id']),
+                'total_profit': r['total_profit'] or Decimal('0'),
+                'total_revenue': r['total_revenue'] or Decimal('0'),
+            }
+            for r in profit_rows_fabric if r['fabric_color__fabric__id'] and fabrics_by_id.get(r['fabric_color__fabric__id'])
+        ]
 
     # Данные о периоде
     period_deals = Deal.objects.filter(
@@ -606,6 +734,13 @@ def financial_dashboard(request):
         # Данные для графиков
         'weekly_revenue': weekly_revenue,
         'week_labels': week_labels,
+
+        # Параметры Top-20 для шаблона
+        'top20_mode': top20_mode,
+        'top20_month_from': top20_month_from,
+        'top20_month_to': top20_month_to,
+        'top20_year_from': top20_year_from,
+        'top20_year_to': top20_year_to,
     }
     
     # Кешируем на 5 минут
@@ -1096,4 +1231,169 @@ def change_admin_password_page(request):
         return redirect('core:home')
     
     return render(request, 'finances/change_admin_password.html')
+
+
+@login_required
+def get_top20_data(request):
+    """Возвращает Top 20 клиентов и тканей по выбранному диапазону месяцев или годов в JSON."""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.role != 'admin':
+        return JsonResponse({'error': 'Доступ запрещен'}, status=403)
+
+    today = timezone.localdate()
+    top20_mode = request.GET.get('top20_mode', 'month')
+    default_month = today.strftime('%Y-%m')
+    default_year = today.strftime('%Y')
+
+    top20_month_from = request.GET.get('top20_month_from', default_month)
+    top20_month_to = request.GET.get('top20_month_to', default_month)
+    top20_year_from = request.GET.get('top20_year_from', default_year)
+    top20_year_to = request.GET.get('top20_year_to', default_year)
+
+    try:
+        if top20_mode == 'year':
+            y_from = int(top20_year_from)
+            y_to = int(top20_year_to)
+            if y_from > y_to:
+                y_from, y_to = y_to, y_from
+            start_date = datetime(y_from, 1, 1).date()
+            end_date = datetime(y_to, 12, 31).date()
+        else:
+            y1, m1 = map(int, top20_month_from.split('-'))
+            y2, m2 = map(int, top20_month_to.split('-'))
+            d1 = datetime(y1, m1, 1).date()
+            last_day_m2 = calendar.monthrange(y2, m2)[1]
+            d2 = datetime(y2, m2, last_day_m2).date()
+            if d1 > d2:
+                d1, d2 = d2, d1
+            start_date, end_date = d1, d2
+    except Exception:
+        return JsonResponse({'error': 'Неверные параметры периода'}, status=400)
+
+    date_q = Q(deal__created_at__date__gte=start_date) & Q(deal__created_at__date__lte=end_date)
+
+    # Клиенты: выручка и кол-во
+    raw_clients = list(
+        Deal.objects.filter(status='paid', created_at__date__gte=start_date, created_at__date__lte=end_date)
+        .values('client__id', 'client__nickname', 'client__phone')
+        .annotate(total_revenue=Sum('total_amount'), deals_count=Count('id'))
+        .order_by('-total_revenue')[:20]
+    )
+    client_ids = [r['client__id'] for r in raw_clients if r['client__id']]
+    clients_by_id = {c.id: c for c in Client.objects.filter(id__in=client_ids)}
+
+    clients_by_revenue = [
+        {
+            'id': r['client__id'],
+            'nickname': (clients_by_id.get(r['client__id']).nickname if clients_by_id.get(r['client__id']) else r['client__nickname']) if r['client__id'] else '—',
+            'phone': (clients_by_id.get(r['client__id']).phone if clients_by_id.get(r['client__id']) else r.get('client__phone')) if r['client__id'] else None,
+            'total_revenue': float(r['total_revenue'] or 0),
+            'total_deals': r['deals_count'],
+            'avg_check': float((r['total_revenue'] / r['deals_count']) if r['deals_count'] else 0),
+        }
+        for r in raw_clients if r['client__id']
+    ]
+
+    # Клиенты: прибыль
+    profit_rows = list(
+        DealItem.objects.filter(deal__status='paid').filter(date_q)
+        .values('deal__client__id')
+        .annotate(
+            total_profit=Sum(
+                F('total_price') - F('width_meters') * Case(
+                    When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
+                    default=F('fabric_color__fabric__cost_price'),
+                    output_field=models.DecimalField()
+                ),
+                output_field=models.DecimalField()
+            )
+        )
+        .order_by('-total_profit')[:20]
+    )
+    profit_by_client = {r['deal__client__id']: float(r['total_profit'] or 0) for r in profit_rows}
+    clients_by_profit = [
+        {
+            'id': r['id'],
+            'nickname': r['nickname'],
+            'phone': r['phone'],
+            'total_profit': float(profit_by_client.get(r['id'], 0)),
+            'margin': float((profit_by_client.get(r['id'], 0) / r['total_revenue'] * 100) if r['total_revenue'] else 0),
+        }
+        for r in clients_by_revenue
+    ]
+    clients_by_profit.sort(key=lambda x: x['total_profit'], reverse=True)
+
+    # Ткани
+    fabric_qs = DealItem.objects.filter(deal__status='paid', fabric_color__fabric__isnull=False).filter(date_q)
+
+    fabrics_orders = list(
+        fabric_qs.values('fabric_color__fabric__id')
+        .annotate(total_orders=Count('deal', distinct=True), order_frequency=Count('id'))
+        .order_by('-total_orders')[:20]
+    )
+    fabrics_meters = list(
+        fabric_qs.values('fabric_color__fabric__id')
+        .annotate(total_meters=Sum('width_meters'), total_orders=Count('deal', distinct=True))
+        .order_by('-total_meters')[:20]
+    )
+    fabrics_profit = list(
+        fabric_qs.values('fabric_color__fabric__id')
+        .annotate(
+            total_revenue=Sum('total_price'),
+            total_profit=Sum(
+                F('total_price') - F('width_meters') * Case(
+                    When(fixed_cost_price__isnull=False, then=F('fixed_cost_price')),
+                    default=F('fabric_color__fabric__cost_price'),
+                    output_field=models.DecimalField()
+                ),
+                output_field=models.DecimalField()
+            )
+        )
+        .order_by('-total_profit')[:20]
+    )
+
+    fabric_ids = list({*(r['fabric_color__fabric__id'] for r in fabrics_orders), *(r['fabric_color__fabric__id'] for r in fabrics_meters), *(r['fabric_color__fabric__id'] for r in fabrics_profit)})
+    fabrics_by_id = {f.id: f for f in Fabric.objects.filter(id__in=fabric_ids)}
+
+    fabrics_orders_out = [
+        {
+            'id': fid,
+            'name': fabrics_by_id[fid].name if fid in fabrics_by_id else '—',
+            'total_orders': r['total_orders'],
+            'order_frequency': r['order_frequency'],
+        }
+        for r in fabrics_orders if (fid := r['fabric_color__fabric__id']) and fid in fabrics_by_id
+    ]
+
+    fabrics_meters_out = [
+        {
+            'id': fid,
+            'name': fabrics_by_id[fid].name if fid in fabrics_by_id else '—',
+            'total_meters': float(r['total_meters'] or 0),
+            'total_orders': r['total_orders'],
+        }
+        for r in fabrics_meters if (fid := r['fabric_color__fabric__id']) and fid in fabrics_by_id
+    ]
+
+    fabrics_profit_out = [
+        {
+            'id': fid,
+            'name': fabrics_by_id[fid].name if fid in fabrics_by_id else '—',
+            'total_profit': float(r['total_profit'] or 0),
+            'total_revenue': float(r['total_revenue'] or 0),
+        }
+        for r in fabrics_profit if (fid := r['fabric_color__fabric__id']) and fid in fabrics_by_id
+    ]
+
+    return JsonResponse({
+        'clients': {
+            'revenue': clients_by_revenue,
+            'count': sorted(clients_by_revenue, key=lambda x: x['total_deals'], reverse=True)[:20],
+            'profit': clients_by_profit,
+        },
+        'fabrics': {
+            'orders': fabrics_orders_out,
+            'meters': fabrics_meters_out,
+            'profit': fabrics_profit_out,
+        }
+    })
 
