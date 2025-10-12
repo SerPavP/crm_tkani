@@ -2,32 +2,6 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
-class SystemSettings(models.Model):
-    """
-    Модель системных настроек
-    """
-    vat_percentage = models.DecimalField(
-        max_digits=5, 
-        decimal_places=2, 
-        default=20.00,
-        verbose_name="НДС (%)",
-        help_text="Процент НДС для расчета заказов"
-    )
-    
-    class Meta:
-        verbose_name = "Системные настройки"
-        verbose_name_plural = "Системные настройки"
-    
-    def __str__(self):
-        return f"НДС: {self.vat_percentage}%"
-    
-    @classmethod
-    def get_current_vat(cls):
-        """Получить текущий процент НДС"""
-        settings = cls.objects.first()
-        return settings.vat_percentage if settings else 20.00
-
-
 class UserProfile(models.Model):
     """
     Расширение модели пользователя для ролей

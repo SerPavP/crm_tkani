@@ -34,16 +34,14 @@
 <!-- Основные показатели -->
 <div class="row mb-4">
     <div class="col-md-3">
-        <a href="{% url 'deals:deal_create' %}" class="text-decoration-none">
-            <div class="card text-white bg-success h-100 card-hover">
-                <div class="card-body d-flex align-items-center justify-content-center">
-                    <div class="text-center">
-                        <i class="bi bi-plus-circle display-4 mb-2"></i>
-                        <h5 class="mb-0">Создать сделку</h5>
-                    </div>
+        <div class="card text-white bg-success h-100 card-hover" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#createDealModal">
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <div class="text-center">
+                    <i class="bi bi-plus-circle display-4 mb-2"></i>
+                    <h5 class="mb-0">Создать сделку</h5>
                 </div>
             </div>
-        </a>
+        </div>
     </div>
     <div class="col-md-3">
         <a href="{% url 'deals:deal_list' %}?status=pending_payment" class="text-decoration-none">
@@ -196,9 +194,9 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{% url 'deals:deal_create' %}" class="btn btn-success btn-action">
+                    <button type="button" class="btn btn-success btn-action" data-bs-toggle="modal" data-bs-target="#createDealModal">
                         <i class="bi bi-plus-circle"></i> Создать сделку
-                    </a>
+                    </button>
                     <a href="{% url 'clients:client_create' %}" class="btn btn-info btn-action">
                         <i class="bi bi-person-plus"></i> Добавить клиента
                     </a>
@@ -271,9 +269,9 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{% url 'deals:deal_create' %}" class="btn btn-success btn-action">
+                    <button type="button" class="btn btn-success btn-action" data-bs-toggle="modal" data-bs-target="#createDealModal">
                         <i class="bi bi-plus-circle"></i> Создать сделку
-                    </a>
+                    </button>
                     <a href="{% url 'clients:client_create' %}" class="btn btn-info btn-action">
                         <i class="bi bi-person-plus"></i> Добавить клиента
                     </a>
@@ -335,8 +333,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }, 100);
     }
+
 });
 </script>
+
 
 <style>
 .card-hover {

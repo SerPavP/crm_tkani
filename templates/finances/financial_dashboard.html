@@ -1029,6 +1029,17 @@
                                 <button type="submit" id="top20-apply" class="btn btn-primary w-100"><i class="bi bi-funnel"></i> Применить</button>
                             </div>
                         </form>
+                        
+                        <!-- Отображение подробных дат для режима месяцы -->
+                        <div class="row mt-3" id="top20-date-display" style="display: none;">
+                            <div class="col-12">
+                                <div class="alert alert-info mb-0">
+                                    <i class="bi bi-calendar-range"></i> 
+                                    <strong>Период:</strong> 
+                                    <span id="top20-date-range-text">-</span>
+                                </div>
+                            </div>
+                        </div>
                         <script>
                         (function() {
                             function toggleTop20Inputs() {
@@ -1037,20 +1048,58 @@
                                 var monthTo = document.getElementById('top20-month-to');
                                 var yearFrom = document.getElementById('top20-year-from');
                                 var yearTo = document.getElementById('top20-year-to');
+                                var dateDisplay = document.getElementById('top20-date-display');
+                                
                                 if (mode === 'year') {
                                     monthFrom.style.display = 'none';
                                     monthTo.style.display = 'none';
                                     yearFrom.style.display = '';
                                     yearTo.style.display = '';
+                                    dateDisplay.style.display = 'none';
                                 } else {
                                     monthFrom.style.display = '';
                                     monthTo.style.display = '';
                                     yearFrom.style.display = 'none';
                                     yearTo.style.display = 'none';
+                                    dateDisplay.style.display = 'block';
+                                    updateDateDisplay();
                                 }
                             }
+                            
+                            function updateDateDisplay() {
+                                var monthFrom = document.getElementById('top20_month_from').value;
+                                var monthTo = document.getElementById('top20_month_to').value;
+                                var dateRangeText = document.getElementById('top20-date-range-text');
+                                
+                                if (monthFrom && monthTo) {
+                                    // Преобразуем YYYY-MM в читаемый формат
+                                    var fromDate = new Date(monthFrom + '-01');
+                                    var toDate = new Date(monthTo + '-01');
+                                    
+                                    // Получаем последний день месяца для "до"
+                                    var lastDay = new Date(toDate.getFullYear(), toDate.getMonth() + 1, 0);
+                                    
+                                    var fromStr = fromDate.toLocaleDateString('ru-RU', { 
+                                        year: 'numeric', 
+                                        month: 'long',
+                                        day: 'numeric'
+                                    });
+                                    var toStr = lastDay.toLocaleDateString('ru-RU', { 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                    });
+                                    
+                                    dateRangeText.textContent = `с ${fromStr} по ${toStr}`;
+                                } else {
+                                    dateRangeText.textContent = 'не выбрано';
+                                }
+                            }
+                            
                             document.addEventListener('DOMContentLoaded', function() {
                                 document.querySelector('select[name="top20_mode"]').addEventListener('change', toggleTop20Inputs);
+                                document.getElementById('top20_month_from').addEventListener('change', updateDateDisplay);
+                                document.getElementById('top20_month_to').addEventListener('change', updateDateDisplay);
                                 toggleTop20Inputs();
                             });
                         })();
@@ -1343,17 +1392,17 @@
                         const html = rows.map((r, idx) => {
                             if (type.startsWith('client')) {
                                 if (type === 'client_revenue' || type === 'client_count') {
-                                    return `<tr><td>${idx+1}</td><td><strong>${r.nickname || '—'}</strong>${r.phone ? `<br><small class="text-muted">${r.phone}</small>` : ''}</td><td>${new Intl.NumberFormat('ru-RU').format(Math.round((type==='client_revenue'? r.total_revenue : r.total_deals)))}${type==='client_revenue' ? ' ₸' : ''}</td><td>${type==='client_revenue' ? `<span class="badge bg-primary">${r.total_deals}</span>` : new Intl.NumberFormat('ru-RU').format(Math.round(r.avg_check)) + ' ₸'}</td></tr>`;
+                                    return `<tr class="clickable-row" data-href="/clients/${r.id}/" style="cursor: pointer;"><td>${idx+1}</td><td><strong>${r.nickname || '—'}</strong>${r.phone ? `<br><small class="text-muted">${r.phone}</small>` : ''}</td><td>${new Intl.NumberFormat('ru-RU').format(Math.round((type==='client_revenue'? r.total_revenue : r.total_deals)))}${type==='client_revenue' ? ' ₸' : ''}</td><td>${type==='client_revenue' ? `<span class="badge bg-primary">${r.total_deals}</span>` : new Intl.NumberFormat('ru-RU').format(Math.round(r.avg_check)) + ' ₸'}</td></tr>`;
                                 } else if (type === 'client_profit') {
-                                    return `<tr><td>${idx+1}</td><td><strong>${r.nickname || '—'}</strong>${r.phone ? `<br><small class=\"text-muted\">${r.phone}</small>` : ''}</td><td class=\"text-success\"><strong>${new Intl.NumberFormat('ru-RU').format(Math.round(r.total_profit))} ₸</strong></td><td>${r.margin.toFixed(1)}%</td></tr>`;
+                                    return `<tr class="clickable-row" data-href="/clients/${r.id}/" style="cursor: pointer;"><td>${idx+1}</td><td><strong>${r.nickname || '—'}</strong>${r.phone ? `<br><small class=\"text-muted\">${r.phone}</small>` : ''}</td><td class=\"text-success\"><strong>${new Intl.NumberFormat('ru-RU').format(Math.round(r.total_profit))} ₸</strong></td><td>${r.margin.toFixed(1)}%</td></tr>`;
                                 }
                             } else if (type.startsWith('fabric')) {
                                 if (type === 'fabric_orders') {
-                                    return `<tr><td>${idx+1}</td><td><strong>${r.name}</strong></td><td><span class=\"badge bg-info\">${r.total_orders}</span></td><td>${r.order_frequency}</td></tr>`;
+                                    return `<tr class="clickable-row" data-href="/fabrics/${r.id}/" style="cursor: pointer;"><td>${idx+1}</td><td><strong>${r.name}</strong></td><td><span class=\"badge bg-info\">${r.total_orders}</span></td><td>${r.order_frequency}</td></tr>`;
                                 } else if (type === 'fabric_meters') {
-                                    return `<tr><td>${idx+1}</td><td><strong>${r.name}</strong></td><td><span class=\"badge bg-secondary\">${(r.total_meters || 0).toFixed(1)}м</span></td><td><span class=\"badge bg-info\">${r.total_orders}</span></td></tr>`;
+                                    return `<tr class="clickable-row" data-href="/fabrics/${r.id}/" style="cursor: pointer;"><td>${idx+1}</td><td><strong>${r.name}</strong></td><td><span class=\"badge bg-secondary\">${(r.total_meters || 0).toFixed(1)}м</span></td><td><span class=\"badge bg-info\">${r.total_orders}</span></td></tr>`;
                                 } else if (type === 'fabric_profit') {
-                                    return `<tr><td>${idx+1}</td><td><strong>${r.name}</strong></td><td class=\"text-success\"><strong>${new Intl.NumberFormat('ru-RU').format(Math.round(r.total_profit))} ₸</strong></td><td><strong>${new Intl.NumberFormat('ru-RU').format(Math.round(r.total_revenue))} ₸</strong></td></tr>`;
+                                    return `<tr class="clickable-row" data-href="/fabrics/${r.id}/" style="cursor: pointer;"><td>${idx+1}</td><td><strong>${r.name}</strong></td><td class=\"text-success\"><strong>${new Intl.NumberFormat('ru-RU').format(Math.round(r.total_profit))} ₸</strong></td><td><strong>${new Intl.NumberFormat('ru-RU').format(Math.round(r.total_revenue))} ₸</strong></td></tr>`;
                                 }
                             }
                             return '';

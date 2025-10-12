@@ -1,3 +1,4 @@
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
@@ -884,6 +885,10 @@ def print_deal_warehouse(request, deal_id):
 
     # Заголовок документа
     story.append(Paragraph(f"Сделка №{deal.deal_number}", title_style))
+    story.append(Spacer(1, 0.2 * inch))
+
+    # Информация о клиенте
+    story.append(Paragraph(f"<b>Клиент:</b> {deal.client.nickname}", normal_style))
     story.append(Spacer(1, 0.2 * inch))
 
     # Таблица позиций (только для склада - без цен)

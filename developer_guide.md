@@ -1,4 +1,7 @@
-# Инструкция по развертыванию CRM Fabrics на Ubuntu VM
+# Инструкция по развертыванию CRM Fabrics
+
+**Версия:** 1.25  
+**Разработчик:** SolveMint
 
 ## Анализ готовности проекта
 
@@ -7,14 +10,16 @@
 - Настроены статические файлы (`STATIC_ROOT`, `STATIC_URL`)
 - Настроены медиа файлы (`MEDIA_ROOT`, `MEDIA_URL`)
 - Настроены CSRF trusted origins
-- Используется SQLite (простая миграция)
+- Поддержка PostgreSQL и SQLite
+- Модальные окна для быстрого создания сделок
+- Кликабельные элементы в топ-20 рейтингах
 
 ### ⚠️ Что нужно исправить перед продакшеном:
 - `DEBUG = True` - нужно изменить на `False`
 - `SECRET_KEY` в коде - нужно вынести в переменные окружения
 - `ALLOWED_HOSTS = ['*']` - нужно указать конкретные домены
 
-## Пошаговая инструкция развертывания
+## Развертывание на Ubuntu
 
 ### 1. Подготовка Ubuntu VM
 
@@ -75,7 +80,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 # Установка дополнительных пакетов для продакшена
-pip install gunicorn psycopg2-binary
+pip install gunicorn
 ```
 
 ### 5. Настройка переменных окружения
@@ -90,10 +95,30 @@ nano .env
 DEBUG=False
 SECRET_KEY=ваш_новый_секретный_ключ_здесь
 ALLOWED_HOSTS=ваш_домен.com,www.ваш_домен.com,IP_АДРЕС_СЕРВЕРА
-DATABASE_URL=sqlite:///db.sqlite3
+
+# PostgreSQL настройки
+DB_NAME=crm_tkani
+DB_USER=crmfabrics_user
+DB_PASSWORD=ваш_пароль_базы_данных
+DB_HOST=localhost
+DB_PORT=5432
 ```
 
-### 6. Настройка Django для продакшена
+### 6. Настройка PostgreSQL
+
+```bash
+# Создание базы данных
+sudo -u postgres createdb crm_tkani
+sudo -u postgres createuser crmfabrics_user
+
+# Настройка прав доступа
+sudo -u postgres psql
+GRANT ALL PRIVILEGES ON DATABASE crm_tkani TO crmfabrics_user;
+ALTER USER crmfabrics_user PASSWORD 'ваш_пароль_базы_данных';
+\q
+```
+
+### 7. Настройка Django для продакшена
 
 Создайте файл `crm_fabrics/settings_production.py`:
 
@@ -145,7 +170,7 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 ```
 
-### 7. Создание директорий и настройка прав
+### 8. Создание директорий и настройка прав
 
 ```bash
 # Создание директории для логов
@@ -157,7 +182,7 @@ chmod 755 logs media
 chmod 644 .env
 ```
 
-### 8. Применение миграций и создание суперпользователя
+### 9. Применение миграций и создание суперпользователя
 
 ```bash
 # Применение миграций
@@ -170,7 +195,7 @@ python manage.py createsuperuser --settings=crm_fabrics.settings_production
 python manage.py collectstatic --settings=crm_fabrics.settings_production --noinput
 ```
 
-### 9. Настройка Gunicorn
+### 10. Настройка Gunicorn
 
 Создайте файл `gunicorn.conf.py`:
 
@@ -187,7 +212,7 @@ max_requests_jitter = 50
 preload_app = True
 ```
 
-### 10. Настройка systemd сервиса
+### 11. Настройка systemd сервиса
 
 Создайте файл `/etc/systemd/system/crmfabrics.service`:
 
@@ -212,7 +237,7 @@ PrivateTmp=true
 WantedBy=multi-user.target
 ```
 
-### 11. Настройка Nginx
+### 12. Настройка Nginx
 
 Создайте файл `/etc/nginx/sites-available/crmfabrics`:
 
@@ -267,7 +292,7 @@ server {
 }
 ```
 
-### 12. Активация сервисов
+### 13. Активация сервисов
 
 ```bash
 # Активация Nginx сайта
@@ -288,7 +313,7 @@ sudo systemctl start crmfabrics
 sudo systemctl status crmfabrics
 ```
 
-### 13. Настройка файрвола
+### 14. Настройка файрвола
 
 ```bash
 # Установка UFW
@@ -300,7 +325,7 @@ sudo ufw allow 'Nginx Full'
 sudo ufw enable
 ```
 
-### 14. Настройка SSL сертификатов (Let's Encrypt)
+### 15. Настройка SSL сертификатов (Let's Encrypt)
 
 ```bash
 # Установка Certbot
@@ -315,7 +340,49 @@ sudo crontab -e
 # 0 12 * * * /usr/bin/certbot renew --quiet
 ```
 
-### 15. Мониторинг и логи
+## Развертывание на Windows
+
+### 1. Установка Python
+- Скачайте Python 3.11+ с [python.org](https://python.org)
+- Установите с опцией "Add to PATH"
+
+### 2. Установка PostgreSQL (опционально)
+- Скачайте PostgreSQL с [postgresql.org](https://postgresql.org)
+- Создайте базу данных и пользователя
+
+### 3. Настройка проекта
+```cmd
+# Клонирование проекта
+git clone <repository_url> crm_fabrics
+cd crm_fabrics
+
+# Создание виртуального окружения
+python -m venv venv
+venv\Scripts\activate
+
+# Установка зависимостей
+pip install -r requirements.txt
+
+# Создание файла .env
+copy env_template.txt .env
+# Отредактируйте .env файл
+
+# Настройка базы данных
+python manage.py migrate
+python manage.py createsuperuser
+
+# Сбор статических файлов
+python manage.py collectstatic
+
+# Запуск сервера
+python manage.py runserver
+```
+
+### 4. Запуск в продакшене на Windows
+
+Для продакшена на Windows рекомендуется использовать IIS с wfastcgi или развертывание в Docker.
+
+## Мониторинг и логи
 
 ```bash
 # Просмотр логов Django
@@ -329,7 +396,7 @@ sudo tail -f /var/log/nginx/error.log
 sudo journalctl -u crmfabrics -f
 ```
 
-### 16. Резервное копирование
+## Резервное копирование
 
 Создайте скрипт `/home/crmfabrics/backup.sh`:
 
@@ -341,14 +408,14 @@ DATE=$(date +%Y%m%d_%H%M%S)
 # Создание директории для бэкапов
 mkdir -p $BACKUP_DIR
 
-# Бэкап базы данных
-cp /home/crmfabrics/crm_fabrics/db.sqlite3 $BACKUP_DIR/db_$DATE.sqlite3
+# Бэкап базы данных PostgreSQL
+pg_dump -h localhost -U crmfabrics_user crm_tkani > $BACKUP_DIR/db_$DATE.sql
 
 # Бэкап медиа файлов
 tar -czf $BACKUP_DIR/media_$DATE.tar.gz -C /home/crmfabrics/crm_fabrics media/
 
 # Удаление старых бэкапов (старше 30 дней)
-find $BACKUP_DIR -name "*.sqlite3" -mtime +30 -delete
+find $BACKUP_DIR -name "*.sql" -mtime +30 -delete
 find $BACKUP_DIR -name "*.tar.gz" -mtime +30 -delete
 ```
 
@@ -399,10 +466,13 @@ source venv/bin/activate
 python manage.py collectstatic --settings=crm_fabrics.settings_production --noinput
 ```
 
-### Если база данных заблокирована:
+### Если база данных недоступна:
 ```bash
-# Проверка процессов SQLite
-sudo fuser /home/crmfabrics/crm_fabrics/db.sqlite3
+# Проверка статуса PostgreSQL
+sudo systemctl status postgresql
+
+# Проверка подключения
+psql -h localhost -U crmfabrics_user -d crm_tkani
 ```
 
 ## Рекомендации по безопасности
@@ -422,32 +492,18 @@ sudo fuser /home/crmfabrics/crm_fabrics/db.sqlite3
 
 6. **Ограничьте доступ к серверу только необходимыми портами**
 
-## Переход на PostgreSQL (опционально)
+## Особенности версии 1.25
 
-Если вы хотите использовать PostgreSQL вместо SQLite:
+### Новые возможности:
+- **Модальные окна**: Быстрое создание сделок с любой страницы
+- **Кликабельные элементы**: Ссылки на клиентов и ткани в топ-20
+- **Улучшенные PDF**: Информация о клиенте в отчетах для склада
+- **Подробные даты**: Отображение периодов в финансовой аналитике
 
-```bash
-# Создание базы данных
-sudo -u postgres createdb crmfabrics
-sudo -u postgres createuser crmfabrics_user
-
-# Настройка прав доступа
-sudo -u postgres psql
-GRANT ALL PRIVILEGES ON DATABASE crmfabrics TO crmfabrics_user;
-\q
-
-# Обновление settings_production.py
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'crmfabrics',
-        'USER': 'crmfabrics_user',
-        'PASSWORD': 'ваш_пароль',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
-}
-```
+### Технические улучшения:
+- **Context processors**: Глобальный доступ к списку клиентов
+- **AJAX обработка**: Улучшенная работа с модальными окнами
+- **Bootstrap 5**: Современный интерфейс
 
 ## Заключение
 
@@ -459,3 +515,7 @@ DATABASES = {
 - Создать сильный SECRET_KEY
 - Настроить регулярные бэкапы
 - Мониторить логи и производительность
+
+---
+
+**Создано SolveMint | Версия 1.25**
