@@ -16,8 +16,13 @@ def client_list(request):
     """Список всех клиентов"""
     try:
         search_query = request.GET.get('search', '')
+        limit = int(request.GET.get('limit', 15))  # Лимит записей для отображения
         
         clients = Client.objects.all().order_by('-created_at')
+        
+        # Флаг наличия фильтров
+        has_filters = bool(search_query)
+        
         if search_query:
             clients = clients.filter(
                 Q(nickname__icontains=search_query) |
@@ -26,9 +31,22 @@ def client_list(request):
                 Q(notes__icontains=search_query)
             )
         
+        # Подсчитываем общее количество записей до применения лимита
+        total_count = clients.count()
+        
+        # Применяем лимит для отображения
+        clients_limited = clients[:limit]
+        
+        # Проверяем, есть ли ещё записи для показа
+        has_more = total_count > limit
+        
         context = {
-            'clients': clients,
+            'clients': clients_limited,
             'search_query': search_query,
+            'current_limit': limit,
+            'total_count': total_count,
+            'has_more': has_more,
+            'next_limit': limit + 15,
         }
         return render(request, 'clients/client_list.html', context)
     except Exception as e:

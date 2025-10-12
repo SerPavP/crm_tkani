@@ -230,30 +230,13 @@
                     return;
                 }
 
-                // Отправляем форму
-                fetch(this.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        // Закрываем модальное окно
-                        const modal = bootstrap.Modal.getInstance(createDealModal);
-                        modal.hide();
-                        
-                        // Перезагружаем страницу для обновления данных
-                        window.location.reload();
-                    } else {
-                        alert('Ошибка при создании сделки');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Ошибка при создании сделки');
-                });
+                // Отправляем форму обычным способом (не AJAX) для корректного перенаправления
+                // Закрываем модальное окно
+                const modal = bootstrap.Modal.getInstance(createDealModal);
+                modal.hide();
+                
+                // Отправляем форму обычным способом
+                this.submit();
             });
         }
     });

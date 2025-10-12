@@ -97,6 +97,9 @@ def home(request):
     total_fabrics = Fabric.objects.count()
     total_deals = Deal.objects.count()
     
+    # Список всех клиентов для модального окна
+    all_clients = Client.objects.all().order_by('nickname')
+    
     context = {
         'period_deals_count': period_deals_count,
         'period_revenue': period_revenue,
@@ -115,6 +118,7 @@ def home(request):
         'total_deals_count': total_deals_count,
         'has_more_deals': has_more_deals,
         'next_limit': limit + 15,
+        'all_clients': all_clients,
     }
     
     return render(request, 'core/home.html', context)
