@@ -226,9 +226,9 @@ print_header "Шаг 7: Импорт данных"
 
 # Определяем источник данных в порядке приоритета
 DATA_SOURCE=""
-if [ -f "backup_20250904_111907.json" ]; then
-    DATA_SOURCE="backup_20250904_111907.json"
-    print_info "Найден основной бэкап: backup_20250904_111907.json"
+if [ -f "data_for_windows.json" ]; then
+    DATA_SOURCE="data_for_windows.json"
+    print_info "Найден основной бэкап: data_for_windows.json"
 elif [ -f "db.sqlite3.backup" ]; then
     DATA_SOURCE="db.sqlite3.backup"
     print_info "Найден резервный бэкап: db.sqlite3.backup"
