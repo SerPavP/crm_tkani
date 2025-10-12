@@ -220,26 +220,71 @@ python manage.py migrate
 print_success "Миграции применены"
 
 # ========================================
-# 7. Импорт данных из SQLite (если есть дамп)
+# 7. Импорт данных из бэкапа или SQLite
 # ========================================
 print_header "Шаг 7: Импорт данных"
 
-if [ -f "dan/db.sqlite3" ]; then
-    print_info "Обнаружена база данных SQLite в папке dan/"
-    read -p "Импортировать данные из SQLite? (y/N): " IMPORT_DATA
+# Определяем источник данных в порядке приоритета
+DATA_SOURCE=""
+if [ -f "backup_20250904_111907.json" ]; then
+    DATA_SOURCE="backup_20250904_111907.json"
+    print_info "Найден основной бэкап: backup_20250904_111907.json"
+elif [ -f "db.sqlite3.backup" ]; then
+    DATA_SOURCE="db.sqlite3.backup"
+    print_info "Найден резервный бэкап: db.sqlite3.backup"
+elif [ -f "db.sqlite3" ]; then
+    DATA_SOURCE="db.sqlite3"
+    print_info "Найдена основная база данных: db.sqlite3"
+else
+    print_warning "База данных не найдена. Пропускаем импорт данных."
+    DATA_SOURCE=""
+fi
+
+if [ -n "$DATA_SOURCE" ]; then
+    read -p "Импортировать данные из $DATA_SOURCE? (y/N): " IMPORT_DATA
     
     if [[ $IMPORT_DATA =~ ^[Yy]$ ]]; then
-        print_info "Экспорт данных из SQLite..."
-        
-        # Временно переключаемся на SQLite для экспорта
-        python export_data.py
-        
-        if [ -f "db_dump.json" ]; then
-            print_info "Импорт данных в PostgreSQL..."
-            python manage.py loaddata db_dump.json
+        if [[ "$DATA_SOURCE" == *.json ]]; then
+            # Прямой импорт из JSON бэкапа
+            print_info "Импорт данных из JSON бэкапа..."
+            python manage.py loaddata "$DATA_SOURCE"
+        else
+            # Экспорт из SQLite и импорт в PostgreSQL
+            print_info "Экспорт данных из SQLite..."
             
-            print_info "Сброс последовательностей ID..."
+            # Временно переключаемся на SQLite для экспорта
             python manage.py shell <<PYEOF
+import os
+import django
+from django.core.management import call_command
+from io import StringIO
+
+# Временно меняем настройки на SQLite
+os.environ['DJANGO_SETTINGS_MODULE'] = 'crm_fabrics.settings'
+django.setup()
+
+# Экспортируем данные
+output = StringIO()
+call_command('dumpdata', exclude=['auth.permission', 'contenttypes'], format='json', indent=2, stdout=output)
+data = output.getvalue()
+
+# Сохраняем в файл с UTF-8 кодировкой
+with open('db_dump.json', 'w', encoding='utf-8') as f:
+    f.write(data)
+
+print("Данные экспортированы в db_dump.json")
+PYEOF
+            
+            if [ -f "db_dump.json" ]; then
+                print_info "Импорт данных в PostgreSQL..."
+                python manage.py loaddata db_dump.json
+            else
+                print_error "Файл db_dump.json не найден"
+            fi
+        fi
+        
+        print_info "Сброс последовательностей ID..."
+        python manage.py shell <<PYEOF
 from django.db import connection
 cursor = connection.cursor()
 cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name NOT LIKE 'django_%'")
@@ -251,14 +296,9 @@ for table in tables:
         pass
 print("Sequences reset successfully")
 PYEOF
-            
-            print_success "Данные импортированы"
-        else
-            print_error "Файл db_dump.json не найден"
-        fi
+        
+        print_success "Данные импортированы"
     fi
-else
-    print_warning "База данных SQLite не найдена. Пропускаем импорт данных."
 fi
 
 # ========================================
