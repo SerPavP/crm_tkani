@@ -69,20 +69,28 @@ def home(request):
         for deal in period_paid_deals:
             period_profit += deal.total_profit
     
+    # Параметр лимита для отображения сделок
+    limit = int(request.GET.get('limit', 15))
+    
     # Сделки ожидающие оплаты
-    pending_deals = Deal.objects.filter(status='pending_payment')
+    pending_deals = Deal.objects.filter(status='pending_payment').order_by('-created_at')
     pending_deals_count = pending_deals.count()
     
-    # Последние 15 сделок
-    recent_deals = Deal.objects.all().order_by('-created_at')[:15]
+    # Последние сделки
+    recent_deals = Deal.objects.all().order_by('-created_at')
     
     # Выбираем какие сделки показать в основном блоке
     if deals_type == 'pending':
-        main_deals = pending_deals[:15]
+        # Для ожидающих оплаты показываем ВСЕ сделки без лимита
+        total_deals_count = pending_deals.count()
+        main_deals = pending_deals
         main_deals_title = "Сделки ожидающие оплаты"
+        has_more_deals = False
     else:
-        main_deals = recent_deals
+        total_deals_count = recent_deals.count()
+        main_deals = recent_deals[:limit]
         main_deals_title = "Последние сделки"
+        has_more_deals = total_deals_count > limit
     
     # Общая статистика
     total_clients = Client.objects.count()
@@ -103,6 +111,10 @@ def home(request):
         'total_clients': total_clients,
         'total_fabrics': total_fabrics,
         'total_deals': total_deals,
+        'current_limit': limit,
+        'total_deals_count': total_deals_count,
+        'has_more_deals': has_more_deals,
+        'next_limit': limit + 15,
     }
     
     return render(request, 'core/home.html', context)

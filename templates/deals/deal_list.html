@@ -63,6 +63,9 @@
 
 <!-- Список сделок -->
 <div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-cart"></i> Список сделок</h5>
+    </div>
     <div class="card-body">
         {% if deals %}
             <div class="table-responsive">
@@ -135,6 +138,16 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Кнопка "Показать ещё" -->
+            {% if has_more %}
+                <div class="text-center mt-3">
+                    <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if date_filter %}date={{ date_filter }}&{% endif %}{% if client_filter %}client={{ client_filter }}&{% endif %}limit={{ next_limit }}" 
+                       class="btn btn-primary btn-lg">
+                        <i class="bi bi-arrow-down-circle"></i> Показать ещё сделки
+                    </a>
+                </div>
+            {% endif %}
         {% else %}
             <div class="text-center py-5">
                 <i class="bi bi-cart-x display-1 text-muted"></i>

@@ -67,8 +67,12 @@ def deal_list(request):
     status_filter = request.GET.get('status', '')
     date_filter = request.GET.get('date', '')
     client_filter = request.GET.get('client', '')
+    limit = int(request.GET.get('limit', 15))  # Лимит записей для отображения
     
     deals = Deal.objects.all().order_by('-created_at')
+    
+    # Флаг наличия фильтров
+    has_filters = bool(search_query or status_filter or date_filter or client_filter)
     
     if search_query:
         deals = deals.filter(
@@ -86,17 +90,30 @@ def deal_list(request):
     if client_filter:
         deals = deals.filter(client_id=client_filter)
     
+    # Подсчитываем общее количество записей до применения лимита
+    total_count = deals.count()
+    
+    # Применяем лимит для отображения
+    deals_limited = deals[:limit]
+    
+    # Проверяем, есть ли ещё записи для показа
+    has_more = total_count > limit
+    
     # Получаем список всех клиентов для фильтра
     clients = Client.objects.all().order_by('nickname')
     
     context = {
-        'deals': deals,
+        'deals': deals_limited,
         'search_query': search_query,
         'status_filter': status_filter,
         'date_filter': date_filter,
         'client_filter': client_filter,
         'status_choices': Deal.STATUS_CHOICES,
         'clients': clients,
+        'current_limit': limit,
+        'total_count': total_count,
+        'has_more': has_more,
+        'next_limit': limit + 15,
     }
     return render(request, 'deals/deal_list.html', context)
 

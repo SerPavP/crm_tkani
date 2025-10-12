@@ -165,14 +165,22 @@
                         </table>
                     </div>
                     
-                    <!-- Кнопка "Все сделки" для "Последние сделки" -->
-                    {% if deals_type == 'recent' %}
+                    <!-- Кнопка "Показать ещё" -->
+                    {% if has_more_deals %}
                         <div class="text-center mt-3">
-                            <a href="{% url 'deals:deal_list' %}" class="btn btn-outline-primary">
-                                <i class="bi bi-list-ul"></i> Показать все сделки
+                            <a href="?{% if period %}period={{ period }}&{% endif %}{% if deals_type %}deals_type={{ deals_type }}&{% endif %}limit={{ next_limit }}" 
+                               class="btn btn-primary">
+                                <i class="bi bi-arrow-down-circle"></i> Показать ещё сделки
                             </a>
                         </div>
                     {% endif %}
+                    
+                    <!-- Кнопка "Все сделки" -->
+                    <div class="text-center mt-2">
+                        <a href="{% url 'deals:deal_list' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-list-ul"></i> Перейти ко всем сделкам
+                        </a>
+                    </div>
                 {% else %}
                     <div class="text-center py-4">
                         <i class="bi bi-inbox display-4 text-muted"></i>

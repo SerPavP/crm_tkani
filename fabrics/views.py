@@ -13,6 +13,10 @@ from core.models import ActivityLog
 def fabric_list(request):
     """Список всех тканей"""
     search_query = request.GET.get('search', '')
+    limit = int(request.GET.get('limit', 15))  # Лимит записей для отображения
+    
+    # Флаг наличия фильтров
+    has_filters = bool(search_query)
     
     fabrics = Fabric.objects.all()
     if search_query:
@@ -54,9 +58,22 @@ def fabric_list(request):
     # Объединяем списки
     sorted_fabrics = fabrics_with_rolls + fabrics_without_rolls
     
+    # Подсчитываем общее количество записей
+    total_count = len(sorted_fabrics)
+    
+    # Применяем лимит для отображения
+    fabrics_limited = sorted_fabrics[:limit]
+    
+    # Проверяем, есть ли ещё записи для показа
+    has_more = total_count > limit
+    
     context = {
-        'fabrics': sorted_fabrics,
+        'fabrics': fabrics_limited,
         'search_query': search_query,
+        'current_limit': limit,
+        'total_count': total_count,
+        'has_more': has_more,
+        'next_limit': limit + 15,
     }
     return render(request, 'fabrics/fabric_list.html', context)
 

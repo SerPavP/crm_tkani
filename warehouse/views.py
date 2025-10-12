@@ -145,8 +145,12 @@ def view_rolls(request):
     color_filter = request.GET.get('color', '')
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
+    limit = int(request.GET.get('limit', 15))  # Лимит записей для отображения
 
     rolls = FabricRoll.objects.select_related('fabric_color__fabric').filter(is_active=True)
+    
+    # Флаг наличия фильтров
+    has_filters = bool(search_query or fabric_filter or color_filter or date_from or date_to)
 
     if search_query:
         rolls = rolls.filter(barcode__icontains=search_query)
@@ -173,6 +177,15 @@ def view_rolls(request):
             pass
 
     rolls = rolls.order_by('-created_at')
+    
+    # Подсчитываем общее количество записей до применения лимита
+    total_count = rolls.count()
+    
+    # Применяем лимит для отображения
+    rolls_limited = rolls[:limit]
+    
+    # Проверяем, есть ли ещё записи для показа
+    has_more = total_count > limit
 
     # Получаем уникальные ткани для фильтра (без дублирования)
     from fabrics.models import Fabric
@@ -181,13 +194,17 @@ def view_rolls(request):
     ).distinct().order_by('name')
 
     context = {
-        'rolls': rolls,
+        'rolls': rolls_limited,
         'search_query': search_query,
         'fabric_filter': fabric_filter,
         'color_filter': color_filter,
         'date_from': date_from,
         'date_to': date_to,
         'unique_fabrics': unique_fabrics,
+        'current_limit': limit,
+        'total_count': total_count,
+        'has_more': has_more,
+        'next_limit': limit + 15,
     }
     return render(request, 'warehouse/view_rolls.html', context)
 
