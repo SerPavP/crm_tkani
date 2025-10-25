@@ -7,6 +7,37 @@
     <h1><i class="bi bi-boxes"></i> Рулоны на складе</h1>
 </div>
 
+<!-- Общая статистика склада -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-boxes display-4 d-block mb-2"></i>
+                <h3 class="mb-0">{{ total_rolls_all }}</h3>
+                <p class="mb-0">Всего рулонов на складе</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-palette display-4 d-block mb-2"></i>
+                <h3 class="mb-0">{{ total_fabrics_count }}</h3>
+                <p class="mb-0">Видов тканей</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-check-circle display-4 d-block mb-2"></i>
+                <h3 class="mb-0">{{ total_count }}</h3>
+                <p class="mb-0">Найдено по фильтрам</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Большие кнопки действий -->
 <div class="row mb-4">
     <div class="col-md-3">
@@ -112,8 +143,11 @@
 
 <!-- Список рулонов -->
 <div class="card">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-boxes"></i> Найденные рулоны</h5>
+        <span class="badge bg-primary fs-6">
+            <i class="bi bi-hash"></i> Всего: {{ total_count }}
+        </span>
     </div>
     <div class="card-body">
         {% if rolls %}

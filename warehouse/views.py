@@ -193,6 +193,12 @@ def view_rolls(request):
         fabriccolor__fabric_rolls_from_fabrics__is_active=True
     ).distinct().order_by('name')
 
+    # Общая статистика по складу (всегда показываем общее количество)
+    total_rolls_all = FabricRoll.objects.filter(is_active=True).count()
+    total_fabrics_count = Fabric.objects.filter(
+        fabriccolor__fabric_rolls_from_fabrics__is_active=True
+    ).distinct().count()
+
     context = {
         'rolls': rolls_limited,
         'search_query': search_query,
@@ -205,6 +211,9 @@ def view_rolls(request):
         'total_count': total_count,
         'has_more': has_more,
         'next_limit': limit + 15,
+        # Общая статистика
+        'total_rolls_all': total_rolls_all,
+        'total_fabrics_count': total_fabrics_count,
     }
     return render(request, 'warehouse/view_rolls.html', context)
 
